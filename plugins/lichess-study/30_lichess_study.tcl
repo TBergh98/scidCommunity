@@ -6,9 +6,11 @@
 #
 # Where to find it:
 #   * Game List window: select one or more games, right click,
-#     "Pubblica su studio Lichess (N)...".
-#   * Tools menu: "Pubblica partita corrente su studio Lichess..." publishes
-#     the game on the board, unsaved changes included.
+#     "Publish to Lichess study (N)...".
+#   * Tools menu: "Publish current game to Lichess study..." publishes the
+#     game on the board, unsaved changes included.
+# The dialog also sets the board orientation and the chapter mode (normal
+# analysis, hide next moves, practice with computer, interactive lesson).
 #
 # Install: copy this file into the "plugins" folder of your scidCommunity
 # user folder (create the folder if it is missing) and restart.
@@ -42,6 +44,7 @@ namespace eval ::lichstudy {
     variable nGames 0
     variable filter ""
     variable orientation auto
+    variable mode normal
     variable busy 0
 }
 
@@ -89,7 +92,7 @@ proc ::lichstudy::curlExe {} {
         }
     }
     if {$exe eq ""} {
-        error "curl non trovato: serve per comunicare con Lichess."
+        error "curl not found: it is needed to talk to Lichess."
     }
     return $exe
 }
@@ -113,7 +116,7 @@ proc ::lichstudy::api {url args} {
     set err [catch {exec {*}$cmd << $config} code]
     set body [readFile $out]
     file delete -force $out
-    if {$err} { error "Errore di rete: [string trim $code]" }
+    if {$err} { error "Network error: [string trim $code]" }
     return [list [string trim $code] $body]
 }
 
@@ -124,16 +127,16 @@ proc ::lichstudy::errorText {code body} {
         set msg ""
     }
     switch -- $code {
-        000 { return "Nessuna risposta da Lichess: controlla la connessione." }
-        401 { return "Token non valido o scaduto (401)." }
-        403 { return "Permesso negato (403): al token mancano gli scope study:read/study:write, oppure non puoi scrivere in questo studio." }
-        404 { return "Studio non trovato (404), oppure è privato e non ne fai parte." }
-        429 { return "Troppe richieste a Lichess (429): aspetta un minuto e riprova." }
+        000 { return "No answer from Lichess: check your internet connection." }
+        401 { return "Invalid or expired token (401)." }
+        403 { return "Permission denied (403): the token lacks the study:read/study:write scopes, or you cannot write to this study." }
+        404 { return "Study not found (404), or it is private and you are not a member." }
+        429 { return "Too many requests to Lichess (429): wait a minute and try again." }
     }
     if {$msg ne ""} { return "Lichess (HTTP $code): $msg" }
     set body [string trim $body]
     if {[string length $body] > 200} { set body "[string range $body 0 199]..." }
-    return "Risposta inattesa da Lichess (HTTP $code). $body"
+    return "Unexpected answer from Lichess (HTTP $code). $body"
 }
 
 ### Games -> PGN ############################################################
@@ -168,12 +171,12 @@ proc ::lichstudy::gamePgn {base num} {
         set txt [sc_game pgn {*}[pgnOptions]]
     } else {
         if {$num < 1 || $num > [sc_base numGames $base]} {
-            error "Partita $num non trovata nel database."
+            error "Game $num not found in the database."
         }
         set txt [sc_game pgn -base $base -gameNumber $num {*}[pgnOptions]]
     }
     if {![string match {\[*} [string trimleft $txt]]} {
-        error "Impossibile leggere la partita $num: $txt"
+        error "Cannot read game $num: $txt"
     }
     return [cleanGame $txt]
 }
@@ -193,21 +196,21 @@ proc ::lichstudy::selectionNumbers {items} {
 proc ::lichstudy::publishGames {base nums} {
     variable maxChapters
     if {![sc_base inUse $base]} {
-        tk_messageBox -icon warning -title "Studio Lichess" -message "Il database non è più aperto."
+        tk_messageBox -icon warning -title "Lichess study" -message "The database is no longer open."
         return
     }
     set n [llength $nums]
     if {$n == 0} { return }
     if {$n > $maxChapters} {
-        tk_messageBox -icon warning -title "Studio Lichess" -message \
-            "Hai selezionato $n partite, ma uno studio Lichess contiene al massimo $maxChapters capitoli."
+        tk_messageBox -icon warning -title "Lichess study" -message \
+            "You selected $n games, but a Lichess study holds at most $maxChapters chapters."
         return
     }
     set pgn ""
     if {[catch {
         foreach num $nums { append pgn [gamePgn $base $num] "\n\n\n" }
     } msg]} {
-        tk_messageBox -icon warning -title "Studio Lichess" -message $msg
+        tk_messageBox -icon warning -title "Lichess study" -message $msg
         return
     }
     openDialog $pgn $n
@@ -215,12 +218,12 @@ proc ::lichstudy::publishGames {base nums} {
 
 proc ::lichstudy::publishCurrent {} {
     if {[sc_game number] == 0 && ![sc_game altered]} {
-        tk_messageBox -icon info -title "Studio Lichess" -message \
-            "Non c'è nessuna partita sulla scacchiera.\n\nPer pubblicare partite di un database selezionale nella Lista partite e usa il menu del tasto destro."
+        tk_messageBox -icon info -title "Lichess study" -message \
+            "There is no game on the board.\n\nTo publish games from a database, select them in the Game List and use the right-click menu."
         return
     }
     if {[catch {cleanGame [sc_game pgn {*}[pgnOptions]]} pgn]} {
-        tk_messageBox -icon warning -title "Studio Lichess" -message $pgn
+        tk_messageBox -icon warning -title "Lichess study" -message $pgn
         return
     }
     openDialog "$pgn\n" 1
@@ -236,7 +239,7 @@ proc ::lichstudy::loadStudies {} {
     lassign [api https://lichess.org/api/account] code body
     if {$code ne "200"} { error [errorText $code $body] }
     if {![regexp {"username"\s*:\s*"([^"]+)"} $body -> user]} {
-        error "Non riesco a leggere il nome utente dalla risposta di Lichess."
+        error "Cannot read the username from the Lichess answer."
     }
 
     lassign [api https://lichess.org/api/study/by/$user] code body
@@ -277,7 +280,7 @@ proc ::lichstudy::applyFilter {w} {
     foreach s $studies {
         lassign $s id nm up byLink
         if {$filter eq "" || [string first [string tolower $filter] [string tolower $nm]] >= 0} {
-            if {$byLink} { append nm "   (aggiunto da link)" }
+            if {$byLink} { append nm "   (added by link)" }
             $w.l.list insert end $nm
             lappend shown $i
         }
@@ -297,10 +300,10 @@ proc ::lichstudy::refresh {w} {
     variable token
     if {![winfo exists $w]} { return }
     if {$token eq ""} {
-        setStatus $w "Incolla il tuo token Lichess e premi \"Salva\"."
+        setStatus $w "Paste your Lichess token and press \"Save\"."
         return
     }
-    setStatus $w "Carico i tuoi studi..."
+    setStatus $w "Loading your studies..."
     $w configure -cursor watch
     set err [catch {loadStudies} res]
     if {![winfo exists $w]} { return }
@@ -309,7 +312,7 @@ proc ::lichstudy::refresh {w} {
     if {$err} {
         setStatus $w $res
     } else {
-        setStatus $w "Account $res: [llength $studies] studi. Scegline uno e premi \"Pubblica\"."
+        setStatus $w "Account $res: [llength $studies] studies. Pick one and press \"Publish\"."
     }
 }
 
@@ -318,7 +321,7 @@ proc ::lichstudy::saveToken {w} {
     variable dir
     set t [string trim [$w.tok.e get]]
     if {$t ne "" && ![regexp {^[A-Za-z0-9_]+$} $t]} {
-        setStatus $w "Il token contiene caratteri non validi: copialo di nuovo da Lichess."
+        setStatus $w "The token contains invalid characters: copy it again from Lichess."
         return
     }
     set token $t
@@ -332,15 +335,15 @@ proc ::lichstudy::addByLink {w} {
     set txt [string trim [$w.add.e get]]
     if {![regexp {lichess\.org/study/([A-Za-z0-9]{8})} $txt -> id]
         && ![regexp {^([A-Za-z0-9]{8})$} $txt -> id]} {
-        tk_messageBox -parent $w -icon warning -title "Studio Lichess" \
-            -message "Incolla il link di uno studio, es. https://lichess.org/study/AbCd1234"
+        tk_messageBox -parent $w -icon warning -title "Lichess study" \
+            -message "Paste the link of a study, e.g. https://lichess.org/study/AbCd1234"
         return
     }
     if {$token eq ""} {
-        setStatus $w "Prima salva il tuo token Lichess."
+        setStatus $w "Save your Lichess token first."
         return
     }
-    setStatus $w "Controllo lo studio $id..."
+    setStatus $w "Checking study $id..."
     if {[catch {api "https://lichess.org/api/study/$id.pgn?clocks=false&comments=false&variations=false"} res]} {
         setStatus $w $res
         return
@@ -350,7 +353,7 @@ proc ::lichstudy::addByLink {w} {
         setStatus $w [errorText $code $body]
         return
     }
-    set nm "Studio $id"
+    set nm "Study $id"
     if {[regexp {\[StudyName "((?:[^"\\]|\\.)*)"\]} $body -> raw]} {
         set nm [string map {\\\" \" \\\\ \\} $raw]
     }
@@ -374,13 +377,14 @@ proc ::lichstudy::publish {w} {
     variable pgn
     variable nGames
     variable orientation
+    variable mode
     variable busy
     variable dir
     if {$busy} { return }
     set sel [$w.l.list curselection]
     if {$sel eq ""} {
-        tk_messageBox -parent $w -icon info -title "Studio Lichess" \
-            -message "Scegli prima uno studio dall'elenco."
+        tk_messageBox -parent $w -icon info -title "Lichess study" \
+            -message "Pick a study from the list first."
         return
     }
     lassign [lindex $studies [lindex $shown $sel]] id nm
@@ -388,13 +392,18 @@ proc ::lichstudy::publish {w} {
     set busy 1
     $w.btn.pub state disabled
     $w configure -cursor watch
-    setStatus $w "Pubblico $nGames partite in \"$nm\"..."
+    set what [expr {$nGames == 1 ? "1 game" : "$nGames games"}]
+    setStatus $w "Publishing $what to \"$nm\"..."
 
     set file [file join $dir "upload_[pid].pgn"]
     writeFile $file $pgn
     set opts [list --data-urlencode "pgn@$file"]
     if {$orientation ne "auto"} {
         lappend opts --data-urlencode "orientation=$orientation"
+    }
+    # Normal analysis is Lichess' default: the API wants no "mode" for it.
+    if {$mode ne "normal"} {
+        lappend opts --data-urlencode "mode=$mode"
     }
     set err [catch {api https://lichess.org/api/study/$id/import-pgn {*}$opts} res]
     file delete -force $file
@@ -411,13 +420,13 @@ proc ::lichstudy::publish {w} {
     set created [regexp -all {"id"\s*:\s*"} $body]
     set problem ""
     if {[regexp {"error"\s*:\s*"((?:[^"\\]|\\.)*)"} $body -> msg]} {
-        set problem "\n\nLichess segnala: [unescape $msg]"
+        set problem "\n\nLichess reports: [unescape $msg]"
     }
     set icon [expr {$created == $nGames && $problem eq "" ? "info" : "warning"}]
-    set ans [tk_messageBox -parent $w -type yesno -icon $icon -title "Studio Lichess" \
-                 -message "Creati $created capitoli su $nGames in \"$nm\".$problem\n\nAprire lo studio nel browser?"]
+    set ans [tk_messageBox -parent $w -type yesno -icon $icon -title "Lichess study" \
+                 -message "Created $created of $nGames chapters in \"$nm\".$problem\n\nOpen the study in your browser?"]
     if {$ans eq "yes"} { openLink "https://lichess.org/study/$id" }
-    if {$created > 0} { destroy $w } else { setStatus $w "Nessun capitolo creato.$problem" }
+    if {$created > 0} { destroy $w } else { setStatus $w "No chapter was created.$problem" }
 }
 
 proc ::lichstudy::openDialog {pgnText n} {
@@ -437,17 +446,17 @@ proc ::lichstudy::openDialog {pgnText n} {
     set w .lichstudy
     if {[winfo exists $w]} { destroy $w }
     toplevel $w
-    wm title $w "Pubblica su studio Lichess"
+    wm title $w "Publish to Lichess study"
 
-    set what [expr {$n == 1 ? "1 partita" : "$n partite"}]
-    ttk::label $w.head -text "Da pubblicare: $what (un capitolo per partita)"
+    set what [expr {$n == 1 ? "1 game" : "$n games"}]
+    ttk::label $w.head -text "To publish: $what (one chapter per game)"
 
     ttk::frame $w.tok
-    ttk::label $w.tok.l -text "Token Lichess:"
+    ttk::label $w.tok.l -text "Lichess token:"
     ttk::entry $w.tok.e -width 34 -show "*"
     $w.tok.e insert 0 $token
-    ttk::button $w.tok.save -text "Salva" -command [list ::lichstudy::saveToken $w]
-    ttk::label $w.tok.link -text "Crea un token (scope study:read e study:write)" \
+    ttk::button $w.tok.save -text "Save" -command [list ::lichstudy::saveToken $w]
+    ttk::label $w.tok.link -text "Create a token (scopes study:read and study:write)" \
         -foreground blue -cursor hand2
     set url {https://lichess.org/account/oauth/token/create?scopes[]=study:read&scopes[]=study:write&description=scidCommunity+studies}
     bind $w.tok.link <ButtonRelease-1> [list ::lichstudy::openLink $url]
@@ -455,7 +464,7 @@ proc ::lichstudy::openDialog {pgnText n} {
     grid x $w.tok.link - -sticky w -padx 2
 
     ttk::frame $w.find
-    ttk::label $w.find.l -text "Cerca studio:"
+    ttk::label $w.find.l -text "Search study:"
     ttk::entry $w.find.e -width 30 -textvariable ::lichstudy::filter
     pack $w.find.l $w.find.e -side left -padx 2
     bind $w.find.e <KeyRelease> [list ::lichstudy::applyFilter $w]
@@ -467,25 +476,41 @@ proc ::lichstudy::openDialog {pgnText n} {
     pack $w.l.sb -side right -fill y
     pack $w.l.list -side left -fill both -expand 1
 
-    ttk::frame $w.ori
-    ttk::label $w.ori.l -text "Orientamento scacchiera:"
-    pack $w.ori.l -side left -padx 2
-    foreach {val txt} {auto Automatico white Bianco black Nero} {
-        ttk::radiobutton $w.ori.$val -text $txt -value $val -variable ::lichstudy::orientation
-        pack $w.ori.$val -side left -padx 4
+    # Chapter settings, applied to every chapter created by this import.
+    ttk::labelframe $w.opt -text "Chapter settings"
+    ttk::label $w.opt.ol -text "Orientation:"
+    grid $w.opt.ol -row 0 -column 0 -sticky w -padx 4 -pady 2
+    set col 1
+    foreach {val txt} {auto Automatic white White black Black} {
+        ttk::radiobutton $w.opt.o$val -text $txt -value $val -variable ::lichstudy::orientation
+        grid $w.opt.o$val -row 0 -column $col -sticky w -padx 4 -pady 2
+        incr col
+    }
+    ttk::label $w.opt.ml -text "Analysis mode:"
+    grid $w.opt.ml -row 1 -column 0 -sticky nw -padx 4 -pady 2
+    set row 1
+    foreach {val txt} {
+        normal   "Normal analysis"
+        conceal  "Hide next moves"
+        practice "Practice with computer"
+        gamebook "Interactive lesson"
+    } {
+        ttk::radiobutton $w.opt.m$val -text $txt -value $val -variable ::lichstudy::mode
+        grid $w.opt.m$val -row $row -column 1 -columnspan 3 -sticky w -padx 4
+        incr row
     }
 
     ttk::frame $w.add
-    ttk::label $w.add.l -text "Studio di cui sei collaboratore (link):"
+    ttk::label $w.add.l -text "Study you contribute to (link):"
     ttk::entry $w.add.e -width 34
-    ttk::button $w.add.b -text "Aggiungi" -command [list ::lichstudy::addByLink $w]
+    ttk::button $w.add.b -text "Add" -command [list ::lichstudy::addByLink $w]
     pack $w.add.l $w.add.e $w.add.b -side left -padx 2
 
     ttk::label $w.status -text "" -wraplength 480 -justify left
     ttk::frame $w.btn
-    ttk::button $w.btn.reload -text "Aggiorna elenco" -command [list ::lichstudy::refresh $w]
-    ttk::button $w.btn.pub -text "Pubblica" -command [list ::lichstudy::publish $w]
-    ttk::button $w.btn.cancel -text "Annulla" -command [list destroy $w]
+    ttk::button $w.btn.reload -text "Reload list" -command [list ::lichstudy::refresh $w]
+    ttk::button $w.btn.pub -text "Publish" -command [list ::lichstudy::publish $w]
+    ttk::button $w.btn.cancel -text "Cancel" -command [list destroy $w]
     pack $w.btn.reload -side left -padx 4
     pack $w.btn.cancel $w.btn.pub -side right -padx 4
 
@@ -493,7 +518,7 @@ proc ::lichstudy::openDialog {pgnText n} {
     pack $w.tok -anchor w -padx 8 -pady 4
     pack $w.find -anchor w -padx 8 -pady 4
     pack $w.l -fill both -expand 1 -padx 8 -pady 4
-    pack $w.ori -anchor w -padx 8 -pady 4
+    pack $w.opt -fill x -padx 8 -pady 4
     pack $w.add -anchor w -padx 8 -pady 4
     pack $w.status -anchor w -padx 8 -pady 4
     pack $w.btn -fill x -padx 8 -pady {4 8}
@@ -521,7 +546,7 @@ proc ::lichstudy::onPopup {cmd op} {
                 set nums [selectionNumbers $sel]
                 if {[llength $nums]} {
                     $m add separator
-                    $m add command -label "Pubblica su studio Lichess ([llength $nums])..." \
+                    $m add command -label "Publish to Lichess study ([llength $nums])..." \
                         -command [list ::lichstudy::publishGames $::glistBase($w) $nums]
                 }
             }
@@ -534,5 +559,5 @@ catch {trace remove execution ::tk_popup enter ::lichstudy::onPopup}
 trace add execution ::tk_popup enter ::lichstudy::onPopup
 
 .menu.tools add separator
-.menu.tools add command -label "Pubblica partita corrente su studio Lichess..." \
+.menu.tools add command -label "Publish current game to Lichess study..." \
     -command ::lichstudy::publishCurrent
