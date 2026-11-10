@@ -31,7 +31,12 @@
 #   DELETE /api/study/{id}/{chapter} -> that empty chapter (study:write)
 # For a new study with 64 games the first game is imported before the empty
 # chapter is deleted and the other 63 after, so that all of them fit.
-# A study holds at most 64 chapters. Lichess has no endpoint listing the
+# A study holds at most 64 chapters. Before publishing, the chapters of the
+# study are counted (GET /api/study/{id}.pgn); if the games do not all fit
+# the user can abort, publish only the first ones, or publish the first ones
+# and put the rest in a new study (named in the dialog). Lichess itself imports games
+# one by one until the limit and then answers HTTP 200 with error "Too many
+# chapters"; the plugin shows that error in a dialog. Lichess has no endpoint listing the
 # studies you only contribute to: add those once by pasting their link.
 #
 # Files kept in <user folder>/lichess_study/:
@@ -54,6 +59,10 @@ namespace eval ::lichstudy {
     variable newName ""
     variable newVisibility private
     variable fresh {}       ;# {studyId emptyChapterId} of a study just created
+    variable ovfAct split   ;# the "study is full" question (askOverflow)
+    variable ovfName ""
+    variable ovfMsg ""
+    variable ovfDone 0
 }
 
 ### Small helpers ###########################################################
@@ -128,6 +137,26 @@ proc ::lichstudy::api {url args} {
     return [list [string trim $code] $body]
 }
 
+# Clearer text for the Lichess error messages users are likely to meet.
+proc ::lichstudy::friendly {msg} {
+    variable maxChapters
+    if {$msg eq "Too many chapters"} {
+        return "the study is full: a Lichess study holds at most $maxChapters chapters."
+    }
+    return $msg
+}
+
+# Free chapter slots of study $id, or -1 if they cannot be counted (the
+# caller then just publishes and reports what Lichess says).
+proc ::lichstudy::freeChapters {id} {
+    variable maxChapters
+    if {[catch {api "https://lichess.org/api/study/$id.pgn?clocks=false&comments=false&variations=false"} r]
+        || [lindex $r 0] ne "200"} {
+        return -1
+    }
+    return [expr {$maxChapters - [regexp -all {\[ChapterURL } [lindex $r 1]]}]
+}
+
 proc ::lichstudy::errorText {code body} {
     if {[regexp {"error"\s*:\s*"((?:[^"\\]|\\.)*)"} $body -> msg]} {
         set msg [unescape $msg]
@@ -141,7 +170,7 @@ proc ::lichstudy::errorText {code body} {
         404 { return "Study not found (404), or it is private and you are not a member." }
         429 { return "Too many requests to Lichess (429): wait a minute and try again." }
     }
-    if {$msg ne ""} { return "Lichess (HTTP $code): $msg" }
+    if {$msg ne ""} { return "Lichess (HTTP $code): [friendly $msg]" }
     set body [string trim $body]
     if {[string length $body] > 200} { set body "[string range $body 0 199]..." }
     return "Unexpected answer from Lichess (HTTP $code). $body"
@@ -394,6 +423,36 @@ proc ::lichstudy::publish {w} {
     doPublish $w $id $nm
 }
 
+# Creates a study named $nm and returns its id; raises a readable error.
+# The new study holds one empty chapter: it is remembered in "fresh" to be
+# deleted after the import (if it cannot be found, it just stays).
+proc ::lichstudy::createStudy {nm} {
+    variable dir
+    variable newVisibility
+    variable fresh
+    # The name goes through a file so UTF-8 survives on Windows.
+    set file [file join $dir "name_[pid].txt"]
+    writeFile $file $nm
+    set err [catch {api https://lichess.org/api/study \
+        --data-urlencode "name@$file" --data-urlencode "visibility=$newVisibility" \
+        --data-urlencode computer=everyone --data-urlencode explorer=everyone \
+        --data-urlencode cloneable=everyone --data-urlencode shareable=everyone \
+        --data-urlencode chat=everyone} res]
+    file delete -force $file
+    if {$err} { error $res }
+    lassign $res code body
+    if {$code ne "200" || ![regexp {"id"\s*:\s*"([^"]+)"} $body -> id]} {
+        error [errorText $code $body]
+    }
+    set fresh [list $id ""]
+    if {![catch {api "https://lichess.org/api/study/$id.pgn?clocks=false&comments=false&variations=false"} r]
+        && [lindex $r 0] eq "200"} {
+        set urls [regexp -all -inline {\[ChapterURL "[^"]*/([A-Za-z0-9]{8})"\]} [lindex $r 1]]
+        if {[llength $urls] == 2} { set fresh [list $id [lindex $urls 1]] }
+    }
+    return $id
+}
+
 # Creates a new study from the "New study" fields, selects it in the list
 # and publishes into it. If the publish fails the study stays selected, so
 # pressing "Publish" retries without creating a second one (Lichess allows
@@ -424,36 +483,14 @@ proc ::lichstudy::createAndPublish {w} {
     $w configure -cursor watch
     setStatus $w "Creating study \"$nm\"..."
 
-    # The name goes through a file so UTF-8 survives on Windows.
-    set file [file join $dir "name_[pid].txt"]
-    writeFile $file $nm
-    set err [catch {api https://lichess.org/api/study \
-        --data-urlencode "name@$file" --data-urlencode "visibility=$newVisibility" \
-        --data-urlencode computer=everyone --data-urlencode explorer=everyone \
-        --data-urlencode cloneable=everyone --data-urlencode shareable=everyone \
-        --data-urlencode chat=everyone} res]
-    file delete -force $file
+    set err [catch {createStudy $nm} id]
 
     set busy 0
     if {![winfo exists $w]} { return }
     $w configure -cursor ""
     $w.btn.pub state !disabled
     $w.new.go state !disabled
-    if {$err} { setStatus $w $res; return }
-    lassign $res code body
-    if {$code ne "200" || ![regexp {"id"\s*:\s*"([^"]+)"} $body -> id]} {
-        setStatus $w [errorText $code $body]
-        return
-    }
-
-    # The new study holds one empty chapter; remember it to delete it after
-    # the import. If it cannot be found, it just stays (best effort).
-    set fresh [list $id ""]
-    if {![catch {api "https://lichess.org/api/study/$id.pgn?clocks=false&comments=false&variations=false"} r]
-        && [lindex $r 0] eq "200"} {
-        set urls [regexp -all -inline {\[ChapterURL "[^"]*/([A-Za-z0-9]{8})"\]} [lindex $r 1]]
-        if {[llength $urls] == 2} { set fresh [list $id [lindex $urls 1]] }
-    }
+    if {$err} { setStatus $w $id; return }
 
     set studies [linsert $studies 0 [list $id $nm 0 0]]
     set filter ""
@@ -485,6 +522,127 @@ proc ::lichstudy::importGames {id gameList} {
     return $res
 }
 
+# Ends the "busy" state of the dialog. Returns 0 if the dialog is gone.
+proc ::lichstudy::idle {w} {
+    variable busy
+    set busy 0
+    if {![winfo exists $w]} { return 0 }
+    $w configure -cursor ""
+    $w.btn.pub state !disabled
+    $w.new.go state !disabled
+    return 1
+}
+
+# Imports $gameList into study $id. Returns {created problem}; problem is ""
+# or a text starting with a blank line.
+proc ::lichstudy::importChunked {id gameList} {
+    variable fresh
+    variable maxChapters
+    # A study created by this dialog holds an empty chapter that counts toward
+    # the 64-chapter limit. Up to 63 games fit next to it: import all, then
+    # delete it. Only 64 games need two steps: the first game, delete the
+    # empty chapter, then the other 63.
+    set chunks [list $gameList]
+    if {$id eq [lindex $fresh 0] && [lindex $fresh 1] ne "" && [llength $gameList] >= $maxChapters} {
+        set chunks [list [lrange $gameList 0 0] [lrange $gameList 1 end]]
+    }
+    set created 0
+    foreach chunk $chunks {
+        if {![llength $chunk]} { continue }
+        if {[catch {importGames $id $chunk} res]} {
+            return [list $created "\n\n$res"]
+        }
+        lassign $res code body
+        if {$code ne "200"} {
+            return [list $created "\n\n[errorText $code $body]"]
+        }
+        # {"chapters":[{"id":..,"name":..,...},...],"error":null|"..."}
+        set n [regexp -all {"id"\s*:\s*"} $body]
+        incr created $n
+        if {$n > 0 && $id eq [lindex $fresh 0]} {
+            if {[lindex $fresh 1] ne ""} {
+                catch {api https://lichess.org/api/study/$id/[lindex $fresh 1] -X DELETE}
+            }
+            set fresh {}
+        }
+        if {[regexp {"error"\s*:\s*"((?:[^"\\]|\\.)*)"} $body -> msg]} {
+            return [list $created "\n\nLichess reports: [friendly [unescape $msg]]"]
+        }
+    }
+    return [list $created ""]
+}
+
+# Modal question when the games do not fit in the study. Returns {} (abort),
+# {first} (publish only the first $free) or {split name} (the first $free here,
+# the others in a new study called "name").
+proc ::lichstudy::askOverflow {w nm free nGames} {
+    variable maxChapters
+    variable ovfAct
+    variable ovfName
+    variable ovfMsg
+    variable ovfDone
+    set rest [expr {$nGames - $free}]
+    set d $w.ovf
+    destroy $d
+    toplevel $d
+    wm title $d "Lichess study"
+    wm transient $d $w
+    wm protocol $d WM_DELETE_WINDOW {set ::lichstudy::ovfDone 0}
+    set ovfAct split
+    set ovfName [string range "$nm (2)" 0 99]
+    set ovfMsg ""
+    set ovfDone -1
+
+    if {$free > 0} {
+        set txt "\"$nm\" has only $free free chapters out of $maxChapters (the Lichess limit), but you want to publish $nGames games."
+    } else {
+        set txt "\"$nm\" is full: a Lichess study holds at most $maxChapters chapters."
+    }
+    ttk::label $d.msg -wraplength 480 -justify left -text "$txt\n\nWhat do you want to do?"
+    pack $d.msg -padx 12 -pady {12 6} -anchor w
+    if {$free > 0} {
+        ttk::radiobutton $d.r1 -variable ::lichstudy::ovfAct -value first \
+            -text "Publish only the first $free games here ($rest will not be published)"
+        pack $d.r1 -padx 12 -anchor w
+        set t2 "Publish the first $free games here and the other $rest in a new study"
+    } else {
+        set t2 "Publish all $nGames games in a new study"
+    }
+    ttk::radiobutton $d.r2 -variable ::lichstudy::ovfAct -value split -text $t2
+    pack $d.r2 -padx 12 -anchor w
+    ttk::frame $d.n
+    ttk::label $d.n.l -text "New study name:"
+    ttk::entry $d.n.e -textvariable ::lichstudy::ovfName -width 42
+    pack $d.n.l $d.n.e -side left -padx {0 6}
+    pack $d.n -padx {34 12} -pady 4 -anchor w
+    ttk::label $d.err -textvariable ::lichstudy::ovfMsg -foreground red
+    pack $d.err -padx 12 -anchor w
+    ttk::frame $d.b
+    ttk::button $d.b.ok -text "Publish" -command {set ::lichstudy::ovfDone 1}
+    ttk::button $d.b.no -text "Abort" -command {set ::lichstudy::ovfDone 0}
+    pack $d.b.no $d.b.ok -side right -padx 4
+    pack $d.b -padx 12 -pady 12 -fill x
+
+    update
+    catch {grab $d}
+    while 1 {
+        vwait ::lichstudy::ovfDone
+        if {$ovfDone == 0} { break }
+        if {$ovfAct eq "first"} { break }
+        set l [string length [string trim $ovfName]]
+        if {$l >= 2 && $l <= 100} { break }
+        set ovfMsg "The study name must be 2 to 100 characters long."
+        set ovfDone -1
+    }
+    set act $ovfAct
+    set name [string trim $ovfName]
+    set done $ovfDone
+    destroy $d
+    if {!$done} { return {} }
+    if {$act eq "first"} { return [list first] }
+    return [list split $name]
+}
+
 proc ::lichstudy::doPublish {w id nm} {
     variable games
     variable busy
@@ -497,61 +655,76 @@ proc ::lichstudy::doPublish {w id nm} {
     $w.new.go state disabled
     $w configure -cursor watch
     set what [expr {$nGames == 1 ? "1 game" : "$nGames games"}]
-    setStatus $w "Publishing $what to \"$nm\"..."
 
-    # A study created by this dialog holds an empty chapter that counts toward
-    # the 64-chapter limit. Up to 63 games fit next to it: import all, then
-    # delete it. Only 64 games need two steps: the first game, delete the
-    # empty chapter, then the other 63.
-    variable maxChapters
-    set chunks [list $games]
-    if {$id eq [lindex $fresh 0] && [lindex $fresh 1] ne "" && $nGames >= $maxChapters} {
-        set chunks [list [lrange $games 0 0] [lrange $games 1 end]]
+    # Lichess imports games one by one until the study reaches 64 chapters,
+    # then stops with "Too many chapters" (HTTP 200: the earlier games are
+    # kept). So count the free slots first and let the user decide. A study
+    # created by this dialog is known to be empty: skip the check.
+    # parts: {studyId name games} for each study to publish into, in order.
+    set parts [list [list $id $nm $games]]
+    set cut 0
+    if {$id ne [lindex $fresh 0]} {
+        setStatus $w "Checking free chapters in \"$nm\"..."
+        set free [freeChapters $id]
+        if {$free >= 0 && $nGames > $free} {
+            set ans [askOverflow $w $nm $free $nGames]
+            if {![llength $ans]} {
+                idle $w
+                setStatus $w "Publish cancelled: nothing was published."
+                return
+            }
+            set head [lrange $games 0 [expr {$free - 1}]]
+            if {[lindex $ans 0] eq "first"} {
+                set parts [list [list $id $nm $head]]
+                set cut [expr {$nGames - $free}]
+            } else {
+                # Create the new study first: if that fails nothing is published.
+                set newNm [lindex $ans 1]
+                setStatus $w "Creating study \"$newNm\"..."
+                if {[catch {createStudy $newNm} newId]} {
+                    idle $w
+                    setStatus $w $newId
+                    tk_messageBox -parent $w -icon error -title "Lichess study" \
+                        -message "Could not create the study \"$newNm\": $newId\n\nNothing was published."
+                    return
+                }
+                set parts [list [list $id $nm $head] [list $newId $newNm [lrange $games $free end]]]
+            }
+        }
     }
+
     set created 0
     set problem ""
-    set failed 0    ;# the request itself failed (as opposed to Lichess reporting a problem)
-    foreach chunk $chunks {
-        if {![llength $chunk]} { continue }
-        if {[catch {importGames $id $chunk} res]} {
-            set problem "\n\n$res"
-            set failed 1
-            break
-        }
-        lassign $res code body
-        if {$code ne "200"} {
-            set problem "\n\n[errorText $code $body]"
-            set failed 1
-            break
-        }
-        # {"chapters":[{"id":..,"name":..,...},...],"error":null|"..."}
-        set n [regexp -all {"id"\s*:\s*"} $body]
+    set report {}
+    set openId $id
+    foreach part $parts {
+        lassign $part pid pnm pgames
+        if {![llength $pgames]} { continue }
+        setStatus $w "Publishing [llength $pgames] game(s) to \"$pnm\"..."
+        lassign [importChunked $pid $pgames] n problem
         incr created $n
-        if {$n > 0 && $id eq [lindex $fresh 0]} {
-            if {[lindex $fresh 1] ne ""} {
-                catch {api https://lichess.org/api/study/$id/[lindex $fresh 1] -X DELETE}
-            }
-            set fresh {}
+        if {$n > 0} {
+            lappend report "$n in \"$pnm\""
+            set openId $pid
         }
-        if {[regexp {"error"\s*:\s*"((?:[^"\\]|\\.)*)"} $body -> msg]} {
-            set problem "\n\nLichess reports: [unescape $msg]"
+        if {$problem ne ""} {
+            set problem "\n\nIn \"$pnm\":$problem"
             break
         }
     }
+    if {$cut} { append problem "\n\nGames not published because the study is full: $cut." }
 
-    set busy 0
-    if {![winfo exists $w]} { return }
-    $w configure -cursor ""
-    $w.btn.pub state !disabled
-    $w.new.go state !disabled
-    if {$created == 0 && $failed} {
+    if {![idle $w]} { return }
+    if {$created == 0 && $problem ne ""} {
         setStatus $w [string trim $problem]
+        tk_messageBox -parent $w -icon error -title "Lichess study" \
+            -message "Nothing was published.$problem"
         return
     }
     set icon [expr {$created == $nGames && $problem eq "" ? "info" : "warning"}]
     set ans [tk_messageBox -parent $w -type yesno -icon $icon -title "Lichess study" \
-                 -message "Created $created of $nGames chapters in \"$nm\".$problem\n\nOpen the study in your browser?"]
-    if {$ans eq "yes"} { openLink "https://lichess.org/study/$id" }
+                 -message "Created $created of $nGames chapters ([join $report {, }]).$problem\n\nOpen the study in your browser?"]
+    if {$ans eq "yes"} { openLink "https://lichess.org/study/$openId" }
     if {$created > 0} { destroy $w } else { setStatus $w "No chapter was created.$problem" }
 }
 
