@@ -29,6 +29,8 @@
 #                                       starts with one empty chapter, which
 #                                       is deleted after the import
 #   DELETE /api/study/{id}/{chapter} -> that empty chapter (study:write)
+# For a new study with 64 games the first game is imported before the empty
+# chapter is deleted and the other 63 after, so that all of them fit.
 # A study holds at most 64 chapters. Lichess has no endpoint listing the
 # studies you only contribute to: add those once by pasting their link.
 #
@@ -44,8 +46,7 @@ namespace eval ::lichstudy {
     variable token ""
     variable studies {}     ;# {id name updatedAt byLink} for each study
     variable shown {}       ;# indexes into studies, in listbox order
-    variable pgn ""         ;# the PGN to publish
-    variable nGames 0
+    variable games {}       ;# the games to publish, one PGN text each
     variable filter ""
     variable orientation auto
     variable mode normal
@@ -213,14 +214,14 @@ proc ::lichstudy::publishGames {base nums} {
             "You selected $n games, but a Lichess study holds at most $maxChapters chapters."
         return
     }
-    set pgn ""
+    set games {}
     if {[catch {
-        foreach num $nums { append pgn [gamePgn $base $num] "\n\n\n" }
+        foreach num $nums { lappend games [gamePgn $base $num] }
     } msg]} {
         tk_messageBox -icon warning -title "Lichess study" -message $msg
         return
     }
-    openDialog $pgn $n
+    openDialog $games
 }
 
 proc ::lichstudy::publishCurrent {} {
@@ -233,7 +234,7 @@ proc ::lichstudy::publishCurrent {} {
         tk_messageBox -icon warning -title "Lichess study" -message $pgn
         return
     }
-    openDialog "$pgn\n" 1
+    openDialog [list $pgn]
 }
 
 ### Studies #################################################################
@@ -462,25 +463,14 @@ proc ::lichstudy::createAndPublish {w} {
     doPublish $w $id $nm
 }
 
-proc ::lichstudy::doPublish {w id nm} {
-    variable pgn
-    variable nGames
+# Imports a list of games into study $id, one chapter each.
+# Returns {httpCode body}; raises an error on network failure.
+proc ::lichstudy::importGames {id gameList} {
     variable orientation
     variable mode
-    variable busy
     variable dir
-    variable fresh
-    if {$busy} { return }
-
-    set busy 1
-    $w.btn.pub state disabled
-    $w.new.go state disabled
-    $w configure -cursor watch
-    set what [expr {$nGames == 1 ? "1 game" : "$nGames games"}]
-    setStatus $w "Publishing $what to \"$nm\"..."
-
     set file [file join $dir "upload_[pid].pgn"]
-    writeFile $file $pgn
+    writeFile $file "[join $gameList "\n\n\n"]\n"
     set opts [list --data-urlencode "pgn@$file"]
     if {$orientation ne "auto"} {
         lappend opts --data-urlencode "orientation=$orientation"
@@ -491,29 +481,72 @@ proc ::lichstudy::doPublish {w id nm} {
     }
     set err [catch {api https://lichess.org/api/study/$id/import-pgn {*}$opts} res]
     file delete -force $file
+    if {$err} { error $res }
+    return $res
+}
+
+proc ::lichstudy::doPublish {w id nm} {
+    variable games
+    variable busy
+    variable fresh
+    if {$busy} { return }
+    set nGames [llength $games]
+
+    set busy 1
+    $w.btn.pub state disabled
+    $w.new.go state disabled
+    $w configure -cursor watch
+    set what [expr {$nGames == 1 ? "1 game" : "$nGames games"}]
+    setStatus $w "Publishing $what to \"$nm\"..."
+
+    # A study created by this dialog holds an empty chapter that counts toward
+    # the 64-chapter limit. Up to 63 games fit next to it: import all, then
+    # delete it. Only 64 games need two steps: the first game, delete the
+    # empty chapter, then the other 63.
+    variable maxChapters
+    set chunks [list $games]
+    if {$id eq [lindex $fresh 0] && [lindex $fresh 1] ne "" && $nGames >= $maxChapters} {
+        set chunks [list [lrange $games 0 0] [lrange $games 1 end]]
+    }
+    set created 0
+    set problem ""
+    set failed 0    ;# the request itself failed (as opposed to Lichess reporting a problem)
+    foreach chunk $chunks {
+        if {![llength $chunk]} { continue }
+        if {[catch {importGames $id $chunk} res]} {
+            set problem "\n\n$res"
+            set failed 1
+            break
+        }
+        lassign $res code body
+        if {$code ne "200"} {
+            set problem "\n\n[errorText $code $body]"
+            set failed 1
+            break
+        }
+        # {"chapters":[{"id":..,"name":..,...},...],"error":null|"..."}
+        set n [regexp -all {"id"\s*:\s*"} $body]
+        incr created $n
+        if {$n > 0 && $id eq [lindex $fresh 0]} {
+            if {[lindex $fresh 1] ne ""} {
+                catch {api https://lichess.org/api/study/$id/[lindex $fresh 1] -X DELETE}
+            }
+            set fresh {}
+        }
+        if {[regexp {"error"\s*:\s*"((?:[^"\\]|\\.)*)"} $body -> msg]} {
+            set problem "\n\nLichess reports: [unescape $msg]"
+            break
+        }
+    }
 
     set busy 0
     if {![winfo exists $w]} { return }
     $w configure -cursor ""
     $w.btn.pub state !disabled
     $w.new.go state !disabled
-    if {$err} { setStatus $w $res; return }
-    lassign $res code body
-    if {$code ne "200"} { setStatus $w [errorText $code $body]; return }
-
-    # {"chapters":[{"id":..,"name":..,...},...],"error":null|"..."}
-    set created [regexp -all {"id"\s*:\s*"} $body]
-
-    # Drop the empty chapter that came with a study created by this dialog.
-    if {$created > 0 && $id eq [lindex $fresh 0]} {
-        if {[lindex $fresh 1] ne ""} {
-            catch {api https://lichess.org/api/study/$id/[lindex $fresh 1] -X DELETE}
-        }
-        set fresh {}
-    }
-    set problem ""
-    if {[regexp {"error"\s*:\s*"((?:[^"\\]|\\.)*)"} $body -> msg]} {
-        set problem "\n\nLichess reports: [unescape $msg]"
+    if {$created == 0 && $failed} {
+        setStatus $w [string trim $problem]
+        return
     }
     set icon [expr {$created == $nGames && $problem eq "" ? "info" : "warning"}]
     set ans [tk_messageBox -parent $w -type yesno -icon $icon -title "Lichess study" \
@@ -522,16 +555,15 @@ proc ::lichstudy::doPublish {w id nm} {
     if {$created > 0} { destroy $w } else { setStatus $w "No chapter was created.$problem" }
 }
 
-proc ::lichstudy::openDialog {pgnText n} {
+proc ::lichstudy::openDialog {gameList} {
     variable token
     variable dir
-    variable pgn
-    variable nGames
+    variable games
     variable filter
     variable busy
 
-    set pgn $pgnText
-    set nGames $n
+    set games $gameList
+    set n [llength $games]
     set filter ""
     set busy 0
     set token [string trim [readFile [file join $dir token.txt]]]
