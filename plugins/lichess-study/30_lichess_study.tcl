@@ -25,6 +25,10 @@
 #   GET  /api/study/by/{username}    -> your studies, private too (study:read)
 #   GET  /api/study/{id}.pgn         -> name of a study added by link (study:read)
 #   POST /api/study/{id}/import-pgn  -> one chapter per game (study:write)
+#   POST /api/study                  -> create a new study (study:write); it
+#                                       starts with one empty chapter, which
+#                                       is deleted after the import
+#   DELETE /api/study/{id}/{chapter} -> that empty chapter (study:write)
 # A study holds at most 64 chapters. Lichess has no endpoint listing the
 # studies you only contribute to: add those once by pasting their link.
 #
@@ -46,6 +50,9 @@ namespace eval ::lichstudy {
     variable orientation auto
     variable mode normal
     variable busy 0
+    variable newName ""
+    variable newVisibility private
+    variable fresh {}       ;# {studyId emptyChapterId} of a study just created
 }
 
 ### Small helpers ###########################################################
@@ -374,12 +381,7 @@ proc ::lichstudy::addByLink {w} {
 proc ::lichstudy::publish {w} {
     variable studies
     variable shown
-    variable pgn
-    variable nGames
-    variable orientation
-    variable mode
     variable busy
-    variable dir
     if {$busy} { return }
     set sel [$w.l.list curselection]
     if {$sel eq ""} {
@@ -388,9 +390,91 @@ proc ::lichstudy::publish {w} {
         return
     }
     lassign [lindex $studies [lindex $shown $sel]] id nm
+    doPublish $w $id $nm
+}
+
+# Creates a new study from the "New study" fields, selects it in the list
+# and publishes into it. If the publish fails the study stays selected, so
+# pressing "Publish" retries without creating a second one (Lichess allows
+# 30 new studies a day).
+proc ::lichstudy::createAndPublish {w} {
+    variable token
+    variable dir
+    variable studies
+    variable filter
+    variable newName
+    variable newVisibility
+    variable fresh
+    variable busy
+    if {$busy} { return }
+    set nm [string trim $newName]
+    if {[string length $nm] < 2 || [string length $nm] > 100} {
+        setStatus $w "The study name must be 2 to 100 characters long."
+        return
+    }
+    if {$token eq ""} {
+        setStatus $w "Save your Lichess token first."
+        return
+    }
 
     set busy 1
     $w.btn.pub state disabled
+    $w.new.go state disabled
+    $w configure -cursor watch
+    setStatus $w "Creating study \"$nm\"..."
+
+    # The name goes through a file so UTF-8 survives on Windows.
+    set file [file join $dir "name_[pid].txt"]
+    writeFile $file $nm
+    set err [catch {api https://lichess.org/api/study \
+        --data-urlencode "name@$file" --data-urlencode "visibility=$newVisibility" \
+        --data-urlencode computer=everyone --data-urlencode explorer=everyone \
+        --data-urlencode cloneable=everyone --data-urlencode shareable=everyone \
+        --data-urlencode chat=everyone} res]
+    file delete -force $file
+
+    set busy 0
+    if {![winfo exists $w]} { return }
+    $w configure -cursor ""
+    $w.btn.pub state !disabled
+    $w.new.go state !disabled
+    if {$err} { setStatus $w $res; return }
+    lassign $res code body
+    if {$code ne "200" || ![regexp {"id"\s*:\s*"([^"]+)"} $body -> id]} {
+        setStatus $w [errorText $code $body]
+        return
+    }
+
+    # The new study holds one empty chapter; remember it to delete it after
+    # the import. If it cannot be found, it just stays (best effort).
+    set fresh [list $id ""]
+    if {![catch {api "https://lichess.org/api/study/$id.pgn?clocks=false&comments=false&variations=false"} r]
+        && [lindex $r 0] eq "200"} {
+        set urls [regexp -all -inline {\[ChapterURL "[^"]*/([A-Za-z0-9]{8})"\]} [lindex $r 1]]
+        if {[llength $urls] == 2} { set fresh [list $id [lindex $urls 1]] }
+    }
+
+    set studies [linsert $studies 0 [list $id $nm 0 0]]
+    set filter ""
+    applyFilter $w
+    $w.l.list selection set 0
+    set newName ""
+    doPublish $w $id $nm
+}
+
+proc ::lichstudy::doPublish {w id nm} {
+    variable pgn
+    variable nGames
+    variable orientation
+    variable mode
+    variable busy
+    variable dir
+    variable fresh
+    if {$busy} { return }
+
+    set busy 1
+    $w.btn.pub state disabled
+    $w.new.go state disabled
     $w configure -cursor watch
     set what [expr {$nGames == 1 ? "1 game" : "$nGames games"}]
     setStatus $w "Publishing $what to \"$nm\"..."
@@ -412,12 +496,21 @@ proc ::lichstudy::publish {w} {
     if {![winfo exists $w]} { return }
     $w configure -cursor ""
     $w.btn.pub state !disabled
+    $w.new.go state !disabled
     if {$err} { setStatus $w $res; return }
     lassign $res code body
     if {$code ne "200"} { setStatus $w [errorText $code $body]; return }
 
     # {"chapters":[{"id":..,"name":..,...},...],"error":null|"..."}
     set created [regexp -all {"id"\s*:\s*"} $body]
+
+    # Drop the empty chapter that came with a study created by this dialog.
+    if {$created > 0 && $id eq [lindex $fresh 0]} {
+        if {[lindex $fresh 1] ne ""} {
+            catch {api https://lichess.org/api/study/$id/[lindex $fresh 1] -X DELETE}
+        }
+        set fresh {}
+    }
     set problem ""
     if {[regexp {"error"\s*:\s*"((?:[^"\\]|\\.)*)"} $body -> msg]} {
         set problem "\n\nLichess reports: [unescape $msg]"
@@ -500,6 +593,15 @@ proc ::lichstudy::openDialog {pgnText n} {
         incr row
     }
 
+    ttk::labelframe $w.new -text "Or create a new study"
+    ttk::label $w.new.nl -text "Name:"
+    ttk::entry $w.new.ne -width 30 -textvariable ::lichstudy::newName
+    ttk::combobox $w.new.vis -width 9 -state readonly \
+        -values {private unlisted public} -textvariable ::lichstudy::newVisibility
+    ttk::button $w.new.go -text "Create and publish" \
+        -command [list ::lichstudy::createAndPublish $w]
+    pack $w.new.nl $w.new.ne $w.new.vis $w.new.go -side left -padx 4 -pady 4
+
     ttk::frame $w.add
     ttk::label $w.add.l -text "Study you contribute to (link):"
     ttk::entry $w.add.e -width 34
@@ -519,6 +621,7 @@ proc ::lichstudy::openDialog {pgnText n} {
     pack $w.find -anchor w -padx 8 -pady 4
     pack $w.l -fill both -expand 1 -padx 8 -pady 4
     pack $w.opt -fill x -padx 8 -pady 4
+    pack $w.new -fill x -padx 8 -pady 4
     pack $w.add -anchor w -padx 8 -pady 4
     pack $w.status -anchor w -padx 8 -pady 4
     pack $w.btn -fill x -padx 8 -pady {4 8}
