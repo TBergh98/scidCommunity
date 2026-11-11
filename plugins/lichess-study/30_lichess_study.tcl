@@ -646,6 +646,7 @@ proc ::lichstudy::askOverflow {w nm free nGames} {
     ttk::button $d.b.no -text "Abort" -command {set ::lichstudy::ovfDone 0}
     pack $d.b.no $d.b.ok -side right -padx 4
     pack $d.b -padx 12 -pady 12 -fill x
+    catch {::tk::PlaceWindow $d widget $w}
 
     update
     catch {grab $d}
@@ -861,16 +862,21 @@ proc ::lichstudy::openDialog {gameList} {
     pack $w.btn.reload -side left -padx 4
     pack $w.btn.cancel $w.btn.pub -side right -padx 4
 
+    # Pack the bottom controls before the study list: when the window is
+    # shorter than requested (Windows caps it at the screen height) the list
+    # shrinks and keeps its scrollbar, instead of the buttons being cut off.
     pack $w.head -anchor w -padx 8 -pady {8 4}
     pack $w.tok -anchor w -padx 8 -pady 4
     pack $w.find -anchor w -padx 8 -pady 4
+    pack $w.btn -side bottom -fill x -padx 8 -pady {4 8}
+    pack $w.status -side bottom -anchor w -padx 8 -pady 4
+    pack $w.add -side bottom -anchor w -padx 8 -pady 4
+    pack $w.new -side bottom -fill x -padx 8 -pady 4
+    pack $w.opt -side bottom -fill x -padx 8 -pady 4
     pack $w.l -fill both -expand 1 -padx 8 -pady 4
-    pack $w.opt -fill x -padx 8 -pady 4
-    pack $w.new -fill x -padx 8 -pady 4
-    pack $w.add -anchor w -padx 8 -pady 4
-    pack $w.status -anchor w -padx 8 -pady 4
-    pack $w.btn -fill x -padx 8 -pady {4 8}
     bind $w <Escape> [list destroy $w]
+    # Open over the Scid window, on whatever monitor it is on.
+    catch {::tk::PlaceWindow $w widget .}
 
     after idle [list ::lichstudy::refresh $w]
 }
