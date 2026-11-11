@@ -572,6 +572,27 @@ proc ::lichstudy::importChunked {id gameList} {
     return [list $created ""]
 }
 
+# Default name for the study that takes the games that do not fit: "nm (2)",
+# or "nm (3)" if nm already ends with "(2)". The base is shortened so the
+# number always survives the 100-character limit; cutting "nm (2)" itself
+# could give back exactly nm.
+proc ::lichstudy::nextName {nm} {
+    set nm [string trim $nm]
+    set num 2
+    if {[regexp {^(.*\S)\s*\((\d{1,6})\)$} $nm -> base n]} {
+        set nm $base
+        set num [expr {[scan $n %d] + 1}]
+    }
+    set suffix " ($num)"
+    set nm [string trimright [string range $nm 0 [expr {99 - [string length $suffix]}]]]
+    return "$nm$suffix"
+}
+
+proc ::lichstudy::ovfDestroyed {win d} {
+    variable ovfDone
+    if {$win eq $d && $ovfDone == -1} { set ovfDone 0 }
+}
+
 # Modal question when the games do not fit in the study. Returns {} (abort),
 # {first} (publish only the first $free) or {split name} (the first $free here,
 # the others in a new study called "name").
@@ -588,8 +609,11 @@ proc ::lichstudy::askOverflow {w nm free nGames} {
     wm title $d "Lichess study"
     wm transient $d $w
     wm protocol $d WM_DELETE_WINDOW {set ::lichstudy::ovfDone 0}
+    # Closing the publish dialog destroys this one too: count it as "Abort",
+    # or the vwait below would never return.
+    bind $d <Destroy> [list ::lichstudy::ovfDestroyed %W $d]
     set ovfAct split
-    set ovfName [string range "$nm (2)" 0 99]
+    set ovfName [nextName $nm]
     set ovfMsg ""
     set ovfDone -1
 
@@ -647,6 +671,8 @@ proc ::lichstudy::doPublish {w id nm} {
     variable games
     variable busy
     variable fresh
+    variable studies
+    variable filter
     if {$busy} { return }
     set nGames [llength $games]
 
@@ -693,28 +719,42 @@ proc ::lichstudy::doPublish {w id nm} {
         }
     }
 
+    # Every part is tried even if an earlier one fails: the games of the new
+    # study do not depend on the old one (which may have been filled by
+    # someone else since its chapters were counted).
     set created 0
     set problem ""
     set report {}
     set openId $id
+    set emptyNew {}
     foreach part $parts {
         lassign $part pid pnm pgames
         if {![llength $pgames]} { continue }
         setStatus $w "Publishing [llength $pgames] game(s) to \"$pnm\"..."
-        lassign [importChunked $pid $pgames] n problem
+        lassign [importChunked $pid $pgames] n p
         incr created $n
         if {$n > 0} {
             lappend report "$n in \"$pnm\""
             set openId $pid
+        } elseif {$pid ne $id} {
+            set emptyNew [list $pid $pnm]
         }
-        if {$problem ne ""} {
-            set problem "\n\nIn \"$pnm\":$problem"
-            break
-        }
+        if {$p ne ""} { append problem "\n\nIn \"$pnm\":$p" }
     }
     if {$cut} { append problem "\n\nGames not published because the study is full: $cut." }
+    if {[llength $emptyNew]} {
+        lassign $emptyNew pid pnm
+        append problem "\n\nThe new study \"$pnm\" was created but holds none of the games\
+            (https://lichess.org/study/$pid)."
+    }
 
     if {![idle $w]} { return }
+    if {[llength $emptyNew]} {
+        # List it, so publishing again uses it instead of making another one.
+        set studies [linsert $studies 0 [list {*}$emptyNew 0 0]]
+        set filter ""
+        applyFilter $w
+    }
     if {$created == 0 && $problem ne ""} {
         setStatus $w [string trim $problem]
         tk_messageBox -parent $w -icon error -title "Lichess study" \

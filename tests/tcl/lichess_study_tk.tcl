@@ -929,12 +929,31 @@ set ::ovfScript {{"" - ok}}
 publishTo $s 3
 set n [lindex [::fake::createdIds] 0]
 set newNm [dict get $::fake::studies $n name]
-check "default name within the 100-character limit" [expr {[string length $newNm] <= 100}] $newNm
-# Known defect: "<99 chars> (2)" is cut at 100 characters, which drops the
-# " (2)" suffix (the trailing space is then trimmed), so the new study gets
-# exactly the name of the full one.
-xfail "default name still differs from the full study's name" [expr {$newNm ne $long}] \
-    "new study named like the old one ([string length $newNm] characters, no \"(2)\")"
+checkEq "long name: base shortened, suffix kept, 100 characters" $newNm "[string repeat L 96] (2)"
+
+fresh
+set s [::fake::addStudy "Openings (2)" 64]
+set ::ovfScript {{"" - abort}}
+publishTo $s 1
+checkEq "a study already numbered gets the next number" [dict get [lindex $::ovfSeen 0] name] "Openings (3)"
+
+section "nextName"
+checkEq "plain" [::lichstudy::nextName "Repertoire"] "Repertoire (2)"
+checkEq "(2) -> (3)" [::lichstudy::nextName "Repertoire (2)"] "Repertoire (3)"
+checkEq "(9) -> (10)" [::lichstudy::nextName "Repertoire (9)"] "Repertoire (10)"
+checkEq "leading zeros are not octal" [::lichstudy::nextName "R (08)"] "R (9)"
+checkEq "no space before the number" [::lichstudy::nextName "R(4)"] "R (5)"
+checkEq "a name that is only a number in brackets" [::lichstudy::nextName "(2)"] "(2) (2)"
+checkEq "brackets with words are not a number" [::lichstudy::nextName "Najdorf (main)"] "Najdorf (main) (2)"
+set n96 "[string repeat a 96] (2)"
+checkEq "100 characters ending in (2)" [::lichstudy::nextName $n96] "[string repeat a 96] (3)"
+set sp "[string repeat a 95] [string repeat b 10]"
+checkEq "cut landing on a space: no double space" [::lichstudy::nextName $sp] "[string repeat a 95] (2)"
+foreach nm [list $long $n96 $sp "ab" [string repeat x 100]] {
+    set r [::lichstudy::nextName $nm]
+    check "'[string range $nm 0 7]...' -> at most 100 characters and different" \
+        [expr {[string length $r] <= 100 && $r ne $nm}] $r
+}
 
 section "full study"
 fresh
@@ -1016,13 +1035,50 @@ set ::ovfScript {{split "Rest" ok}}
 publishTo $s 10
 set n [lindex [::fake::createdIds] 0]
 set msg [boxField [lastBox] -message]
-checkHas "split, study filled meanwhile: 2 published" $msg "Created 2 of 10 chapters"
-# Known defect: the loop stops at the first study's problem, so the new study
-# is left with only its empty chapter and the 6 games meant for it are never
-# sent, and the message does not mention the new study.
-xfail "the games meant for the new study still go there" \
-    [expr {[::fake::nChapters $n] == 6}] \
-    "\"Rest\" holds [::fake::chapterNames $n]; message: [string map {"\n" " "} $msg]"
+checkEq "the games meant for the new study still go there" [::fake::chapterNames $n] [gameNames 5 10]
+checkHas "split, study filled meanwhile: 2 + 6 published" $msg \
+    "Created 8 of 10 chapters (2 in \"Busy\", 6 in \"Rest\")."
+checkHas "the problem is placed in the full study" $msg "In \"Busy\":"
+checkHas "...explained" $msg "the study is full"
+checkHasNot "no empty-study note" $msg "holds none of the games"
+checkEq "warning" [boxField [lastBox] -icon] warning
+
+section "split: the new study gets none of the games"
+fresh
+set s [::fake::addStudy "Nearly full" 60]
+::fake::injectOnce POST "^/api/study/(?!$s)\[^/\]+/import-pgn$" {neterr "connection reset"}
+set ::ovfScript {{split "Rest" ok}}
+set ::boxAnswers {yes}
+publishTo $s 10
+set n [lindex [::fake::createdIds] 0]
+set msg [boxField [lastBox] -message]
+checkEq "old study filled" [::fake::nChapters $s] 64
+checkHas "4 of 10" $msg "Created 4 of 10 chapters (4 in \"Nearly full\")."
+checkHas "the new study's error" $msg "In \"Rest\":\n\nNetwork error: connection reset"
+checkHas "the empty new study is mentioned, with its link" $msg \
+    "The new study \"Rest\" was created but holds none of the games (https://lichess.org/study/$n)."
+checkEq "the browser opens the study that got games" $::opened [list "https://lichess.org/study/$s"]
+
+fresh
+set s [::fake::addStudy "Locked" 60 writable 0]
+::fake::injectOnce POST "^/api/study/(?!$s)\[^/\]+/import-pgn$" {neterr "connection reset"}
+set ::ovfScript {{split "Rest" ok}}
+publishTo $s 10
+set n [lindex [::fake::createdIds] 0]
+set msg [boxField [lastBox] -message]
+checkHas "both parts fail: nothing published" $msg "Nothing was published."
+checkHas "...both causes" $msg "In \"Locked\":\n\nPermission denied (403)"
+checkHas "...and the second" $msg "In \"Rest\":\n\nNetwork error"
+checkHas "...and the empty new study" $msg "The new study \"Rest\" was created but holds none of the games"
+checkEq "dialog stays open" [winfo exists .lichstudy] 1
+checkEq "the new study is listed first" [lrange [lindex $::lichstudy::studies 0] 0 1] [list $n Rest]
+checkEq "...and shown" [.lichstudy.l.list get 0] Rest
+pick .lichstudy $n
+::lichstudy::publish .lichstudy
+update
+checkEq "publishing into it again creates no other study" [llength [::fake::createdIds]] 1
+checkEq "no question for the study just created" [llength $::ovfSeen] 1
+checkEq "its empty chapter deleted, the games in" [::fake::chapterNames $n] [gameNames 1 10]
 
 # ================================================= HTTP and network errors ===
 
@@ -1084,13 +1140,17 @@ set ::ovfHung 0
 set watchdog [after 3000 {set ::ovfHung 1; set ::lichstudy::ovfDone 0}]
 publishTo $s 10
 after cancel $watchdog
+checkEq "askOverflow returns when its window is destroyed" $::ovfHung 0
 checkEq "nothing imported" [::fake::count POST import-pgn] 0
+checkEq "nothing created" [::fake::count POST {^/api/study$}] 0
 checkEq "no error" [llength $::boxes] 0
-# Known defect: the question is a child of the dialog, so closing the dialog
-# destroys it without setting ovfDone; the vwait waits forever and the
-# publish never ends (busy stays 1 until a new dialog is opened).
-xfail "askOverflow returns when its window is destroyed" [expr {!$::ovfHung}] \
-    "it only returned because the watchdog set ovfDone"
+checkEq "the publish ended (not busy)" $::lichstudy::busy 0
+# The <Destroy> binding must not overwrite an answer already given.
+fresh
+set s [::fake::addStudy "Nearly full" 60]
+set ::ovfScript {{first - ok}}
+publishTo $s 10
+checkEq "a normal answer still counts once the question is destroyed" [::fake::nChapters $s] 64
 
 # =================================================================== hooks ===
 
