@@ -470,8 +470,19 @@ proc ::tree::dorefresh { baseNumber {filter "tree"}} {
   if { $tree(allgames$baseNumber) == 0 } {
     set filter [sc_filter compose $baseNumber "dbfilter" "tree"]
   }
+  # The stats re-read every matching game and can take many seconds on a big
+  # base: drive the progress bar, which also keeps the UI responsive. Only
+  # inside ::updateTreeFilter, which cancels and restarts on a new position.
+  if {[info exists ::treeFilterUpdating_]} {
+    progressBarSet $w.progress [lindex [grid bbox $w.statusframe] 2] 100
+  }
   set err [ catch { sc_tree stats $baseNumber $filter $tree(training$baseNumber) \
                                   $tree(order$baseNumber) $tree(movedepth$baseNumber) } moves]
+  if { $err && $::errorCode == $::ERROR::UserCancel
+       && [info exists ::treeFilterUpdating_] && [llength $::treeFilterUpdating_] == 0 } {
+    # The position changed: ::updateTreeFilter is about to refresh again.
+    return
+  }
   if { $err } {
     set tree(status$baseNumber) ""
     set moves [ERROR::getErrorMsg]

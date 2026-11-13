@@ -1117,8 +1117,12 @@ scidBaseT::Stats::getEcoStats(const char* ecoStr) const {
 	return 0;
 }
 
-std::vector<TreeNode> scidBaseT::getTreeStat(const HFilter& filter, int moveDepth) const {
+std::vector<TreeNode> scidBaseT::getTreeStat(const HFilter& filter, int moveDepth,
+                                             const Progress& progress,
+                                             bool* cancelled) const {
 	std::vector<TreeNode> res;
+	if (cancelled)
+		*cancelled = false;
 
 	// Clamp moveDepth to valid range [1, 4]
 	if (moveDepth < 1) moveDepth = 1;
@@ -1160,6 +1164,13 @@ std::vector<TreeNode> scidBaseT::getTreeStat(const HFilter& filter, int moveDept
 	std::unordered_map<MoveSeqKey, size_t, MoveSeqKeyHash> nodeIndex;
 
 	for (gamenumT gnum = 0, n = numGames(); gnum < n; gnum++) {
+		// Reading the moves of millions of games can take many seconds on a
+		// big base: report progress, which also keeps the UI responsive.
+		if ((gnum & 0xFFFF) == 0 && !progress.report(gnum, n)) {
+			if (cancelled)
+				*cancelled = true;
+			return {};
+		}
 		uint ply = filter.get(gnum);
 		if (ply == 0)
 			continue;

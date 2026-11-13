@@ -226,7 +226,11 @@ struct scidBaseT {
 	getFilterComponents(std::string_view filterId) const;
 
 	const Stats& getStats() const;
-	std::vector<TreeNode> getTreeStat(const HFilter& filter, int moveDepth = 1) const;
+	/// @param progress: reported while scanning; returning false stops the scan
+	///                  and sets @e cancelled (if not null) to true.
+	std::vector<TreeNode> getTreeStat(const HFilter& filter, int moveDepth = 1,
+	                                  const Progress& progress = {},
+	                                  bool* cancelled = nullptr) const;
 
 	struct TreeNAGEntry {
 		std::string moveSAN;

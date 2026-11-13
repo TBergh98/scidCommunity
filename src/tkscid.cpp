@@ -8292,7 +8292,11 @@ int sc_tree_stats(ClientData, Tcl_Interp *ti, int argc, const char **argv) {
     moveDepth = 4;
 
   Position searchPos = *(db->game->GetCurrentPos());
-  auto tree = base->getTreeStat(filter, moveDepth);
+  bool cancelled = false;
+  auto tree =
+      base->getTreeStat(filter, moveDepth, UI_CreateProgress(ti), &cancelled);
+  if (cancelled)
+    return UI_Result(ti, ERROR_UserCancel);
 
   // Calculate ECO for a move sequence (use ECO after all moves applied)
   auto calc_eco = [&](auto const &moves) {
