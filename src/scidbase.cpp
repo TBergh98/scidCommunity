@@ -920,7 +920,7 @@ std::vector<TreeNode> scidBaseT::getTreeStat(const HFilter& filter, int moveDept
 	for (gamenumT gnum = 0, n = numGames(); gnum < n; gnum++) {
 		// Reading the moves of millions of games can take many seconds on a
 		// big base: report progress, which also keeps the UI responsive.
-		if ((gnum & 0xFFFF) == 0 && !progress.report(gnum, n)) {
+		if ((gnum & 0xFFF) == 0 && !progress.report(gnum, n)) {
 			if (cancelled)
 				*cancelled = true;
 			return {};
