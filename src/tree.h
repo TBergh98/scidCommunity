@@ -118,9 +118,17 @@ public:
 		return static_cast<int>(lengthSum / lengthCount);
 	}
 
+	/// Most played first. Equally played moves in SAN order, so the list does
+	/// not depend on the order of the games (or come out differently when the
+	/// stats are read from the fast tree file).
 	static auto cmp_ngames_desc() {
-		return
-		    [](auto const& a, auto const& b) { return a.freq[0] > b.freq[0]; };
+		return [](auto const& a, auto const& b) {
+			if (a.freq[0] != b.freq[0])
+				return a.freq[0] > b.freq[0];
+			return std::lexicographical_compare(
+			    a.moves.begin(), a.moves.end(), b.moves.begin(), b.moves.end(),
+			    [](FullMove x, FullMove y) { return x.getSAN() < y.getSAN(); });
+		};
 	}
 
 private:
