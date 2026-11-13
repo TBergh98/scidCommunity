@@ -1,11 +1,12 @@
-Sources for the tb_web_*.png icons (notation pane buttons).
+Sources for the tb_web_*.png icons (notation pane buttons) and tb_tree_fast.png
+(fast tree button of the tree window).
 
 Drawn on a 24x24 pixel grid so they stay crisp; keep coordinates on whole pixels.
 The files use #1e1e1e (light themes); the dark variants use #d8d8d8.
 The eval bar keeps its fixed black/white fill in both variants.
 
 Render (from the img directory):
-  for f in icons_src/tb_web_*.svg; do
+  for f in icons_src/tb_web_*.svg icons_src/tb_tree_fast.svg; do
     n=$(basename "$f" .svg)
     rsvg-convert -w 24 -h 24 "$f" -o "icons_light/$n.png"
     sed 's/#1e1e1e/#d8d8d8/g' "$f" | rsvg-convert -w 24 -h 24 -o "icons_dark/$n.png"

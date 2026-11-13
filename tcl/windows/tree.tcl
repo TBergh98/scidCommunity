@@ -72,6 +72,7 @@ proc ::tree::make { { baseNumber -1 } {locked 0} } {
 
   $w.menu.file add cascade -menu $w.menu.file.size -label TreeFileSetCacheSize
   set helpMessage($w.menu.file,2) TreeFileSetCacheSize
+  $w.menu.file add command -label TreeFileFast -command "::tree::fastTreeButton $baseNumber"
 
   $w.menu.file add command -label TreeFileGraph -command "::tree::graph $baseNumber 1"
   set helpMessage($w.menu.file,5) TreeFileGraph
@@ -171,6 +172,9 @@ proc ::tree::make { { baseNumber -1 } {locked 0} } {
 
   dialogbutton $w.buttons.stop -textvar ::tr(Stop)
   dialogbutton $w.buttons.close -textvar ::tr(Close) -command "::tree::closeTree $baseNumber"
+  # Fast tree: a visible way in for users who would never look in the menu.
+  ttk::checkbutton $w.buttons.fast -image ::icon::tb_tree_fast -style Toolbutton \
+      -variable tree(fast$baseNumber) -command "::tree::fastTreeButton $baseNumber"
 
   pack $w.buttons.best $w.buttons.graph $w.buttons.bStartStop $w.buttons.allgames $w.buttons.training \
       $w.buttons.annotations \
@@ -178,7 +182,9 @@ proc ::tree::make { { baseNumber -1 } {locked 0} } {
   pack $w.buttons.depthlabel -side left -padx "15 3" -pady 2
   pack $w.buttons.depth -side left -padx "0 3" -pady 2
   packbuttons right $w.buttons.close $w.buttons.stop
+  pack $w.buttons.fast -side right -padx 3 -pady 2
   $w.buttons.stop configure -state disabled
+  ::tree::updateFastButton $baseNumber
 
   wm minsize $w 40 5
   ::createToplevelFinalize $w
@@ -421,6 +427,7 @@ proc ::tree::listTreeBases {{base ""}} {
             $w.buttons.bStartStop configure -state disabled
             $w.buttons.training configure -state disabled
             $w.buttons.allgames configure -state disabled
+            $w.buttons.fast configure -state disabled
             $w.buttons.close configure -state disabled
             $w.buttons.stop configure -state normal
             $w.progress coords bar 0 0 0 0
@@ -453,6 +460,40 @@ proc ::tree::restoreButtons {w} {
     $w.buttons.allgames configure -state normal
     $w.buttons.close configure -state normal
     $w.buttons.stop configure -state disabled -command {}
+    if {[regexp {\d+$} $w baseNumber]} { ::tree::updateFastButton $baseNumber }
+}
+
+################################################################################
+# Fast tree: the statistics of the opening positions, precomputed in a file
+# next to the database (see src/treeindex.h).
+
+# Show the state of the fast tree file on the button: pressed when it is used.
+proc ::tree::updateFastButton {baseNumber} {
+  set b .treeWin$baseNumber.buttons.fast
+  if {![winfo exists $b]} { return }
+  if {[catch {sc_tree index $baseNumber status} status]} { set status unsupported }
+  set ::tree(fast$baseNumber) [expr {$status eq "active"}]
+  $b configure -state [expr {$status eq "unsupported" ? "disabled" : "normal"}]
+  ::utils::tooltip::Set $b [tr TreeFastTip[string totitle $status]]
+}
+
+proc ::tree::fastTreeButton {baseNumber} {
+  # The checkbutton only shows the state: put it back before acting.
+  ::tree::updateFastButton $baseNumber
+  if {[info exists ::treeFilterUpdating_]} { return }
+  if {[catch {sc_tree index $baseNumber status} status] || $status eq "unsupported"} {
+    return
+  }
+  set answer [tk_messageBox -parent .treeWin$baseNumber -icon question -type yesno \
+      -title [tr TreeFileFast] -message [tr TreeFastConfirm]]
+  if {$answer ne "yes"} { return }
+
+  progressWindow "Scid" [tr TreeFastBuilding] $::tr(Cancel)
+  set err [catch {sc_tree index $baseNumber build}]
+  closeProgressWindow
+  if {$err && $::errorCode != $::ERROR::UserCancel} { ERROR::MessageBox }
+  ::tree::updateFastButton $baseNumber
+  ::tree::refresh $baseNumber
 }
 
 proc ::tree::refresh { { baseNumber "" }} {

@@ -761,6 +761,8 @@ menuText E TreeFileCacheInfo "Cache info" 0 {Get info on cache usage}
 menuText E TreeFileSave "Save Cache File" 0 {Save the tree cache (.stc) file}
 menuText E TreeFileFill "Fill Cache File" 0 \
   {Fill the cache file with common opening positions}
+menuText E TreeFileFast "Fast Tree..." 0 \
+  {Precompute the statistics of the opening positions, so the tree shows them at once}
 menuText E TreeFileBest "Best Games List" 0 {Show the best tree games list}
 menuText E TreeFileGraph "Graph Window" 0 {Show the graph for this tree branch}
 menuText E TreeFileCopy "Copy Tree Text to Clipboard" 1 \
@@ -816,6 +818,12 @@ translate E TreeFindStalePos {The current position no longer matches the annotat
 translate E TreeTitleRow \
   {    Move(s)                   ECO       Frequency    Score  AvElo Perf avLen AvYear %Draws     %Win}
 translate E TreeTotal {TOTAL}
+translate E TreeFastTipNone {Make the tree faster for this database: precompute the statistics of the opening positions}
+translate E TreeFastTipActive {Fast tree on: the statistics of the opening positions are precomputed. Click to rebuild them}
+translate E TreeFastTipStale {The fast tree is out of date because the database has changed. Click to rebuild it}
+translate E TreeFastTipUnsupported {The fast tree is not available for this database}
+translate E TreeFastConfirm {Scid will read all the games once and save the statistics of the opening positions in a file next to the database. The tree then shows them at once.\n\nOn a large database this takes a few minutes and the file can take a few hundred MB.\n\nContinue?}
+translate E TreeFastBuilding {Preparing the fast tree...}
 translate E DoYouWantToSaveFirst {Do you want to save first}
 translate E AddToMask {Add to Mask}
 translate E RemoveFromMask {Remove from Mask}
