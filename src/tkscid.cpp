@@ -8227,12 +8227,9 @@ int sc_report_select(ClientData, Tcl_Interp *ti, int argc, const char **argv) {
 //////////////////////////////////////////////////////////////////////
 //  SEARCH and TREE functions
 
-int sc_tree_expopen(ClientData, Tcl_Interp *, int, const char **);
-int sc_tree_expstats(ClientData, Tcl_Interp *, int, const char **);
-
 int sc_tree(ClientData cd, Tcl_Interp *ti, int argc, const char **argv) {
-  static const char *options[] = {"stats", "cachesize", "cacheinfo", "nags", "expopen", "expstats", nullptr};
-  enum { TREE_STATS, TREE_CACHESIZE, TREE_CACHEINFO, TREE_NAGS, TREE_EXPOPEN, TREE_EXPSTATS };
+  static const char *options[] = {"stats", "cachesize", "cacheinfo", "nags", nullptr};
+  enum { TREE_STATS, TREE_CACHESIZE, TREE_CACHEINFO, TREE_NAGS };
 
   int index = -1;
   if (argc > 1) {
@@ -8251,12 +8248,6 @@ int sc_tree(ClientData cd, Tcl_Interp *ti, int argc, const char **argv) {
 
   case TREE_NAGS:
     return sc_tree_nags(cd, ti, argc, argv);
-
-  case TREE_EXPOPEN: // EXPERIMENT: src/treeindex_experiment.cpp
-    return sc_tree_expopen(cd, ti, argc, argv);
-
-  case TREE_EXPSTATS:
-    return sc_tree_expstats(cd, ti, argc, argv);
 
   default:
     return InvalidCommand(ti, "sc_tree", options);
