@@ -411,8 +411,17 @@ proc ::tree::select { move baseNumber } {
 # the position of the main board changes.
 # It must also disable commands that depend on the current position.
 # Share of the tree window's progress bar used by the position search; the
-# move stats, usually the slower step, fill the rest.
-set ::tree::searchShare 0.3
+# move stats, usually the slower step, fill the rest. When they come from the
+# fast tree file (same conditions as sc_tree stats) they are instant.
+# shortcut: a position missing from the file is still computed from the games
+# with the bar already full; fine while those positions are the rare, fast ones.
+proc ::tree::searchShare {baseNumber} {
+  if {$::tree(allgames$baseNumber) && $::tree(movedepth$baseNumber) == 1
+      && ![catch {sc_tree index $baseNumber status} status] && $status eq "active"} {
+    return 1.0
+  }
+  return 0.3
+}
 
 proc ::tree::listTreeBases {{base ""}} {
     if { $base == "" } {
@@ -434,7 +443,7 @@ proc ::tree::listTreeBases {{base ""}} {
             grid $w.progress -in $w.statusframe -column 0 -row 0 -sticky nsew
             # One bar for both steps: the search fills its first part and
             # the move stats (::tree::dorefresh) the rest.
-            set progress "$w.progress [lindex [grid bbox $w.statusframe] 2] 100 $::tree::searchShare"
+            set progress "$w.progress [lindex [grid bbox $w.statusframe] 2] 100 [::tree::searchShare $baseNumber]"
             $w.buttons.stop configure -command "
                 ::cancelUpdateTreeFilter [list $progress]
                 ::tree::restoreButtons $w
@@ -521,7 +530,7 @@ proc ::tree::dorefresh { baseNumber {filter "tree"}} {
   # base: drive the progress bar, which also keeps the UI responsive. Only
   # inside ::updateTreeFilter, which cancels and restarts on a new position.
   if {[info exists ::treeFilterUpdating_]} {
-    progressBarContinue $w.progress [lindex [grid bbox $w.statusframe] 2] 100         $::tree::searchShare
+    progressBarContinue $w.progress [lindex [grid bbox $w.statusframe] 2] 100 [::tree::searchShare $baseNumber]
   }
   set err [ catch { sc_tree stats $baseNumber $filter $tree(training$baseNumber) \
                                   $tree(order$baseNumber) $tree(movedepth$baseNumber) } moves]
