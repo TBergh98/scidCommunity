@@ -26,6 +26,7 @@
 #include "misc.h"
 #include "sortcache.h"
 #include "stored.h"
+#include "treeindex.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -193,6 +194,7 @@ void scidBaseT::clear() {
 	}
 	duplicates_.reset();
 	treeCache.Clear();
+	treeIndex_.reset(); // reopened (and checked against the files) on next use
 	for (nameT nt = NAME_PLAYER; nt < NUM_NAME_TYPES; nt++) {
 		nameFreq_[nt].resize(0);
 	}
@@ -206,6 +208,20 @@ std::string scidBaseT::getFileName() const {
 	const auto filenames = codec_->getFilenames();
 	return filenames.empty() ? "<clipbase>" : filenames[0];
 }
+
+std::vector<std::string> scidBaseT::getFileNames() const {
+	return inUse ? codec_->getFilenames() : std::vector<std::string>{};
+}
+
+TreeIndex& scidBaseT::treeIndex() const {
+	if (!treeIndex_) {
+		treeIndex_ = std::make_unique<TreeIndex>();
+		treeIndex_->open(*this, TreeIndex::pathFor(*this));
+	}
+	return *treeIndex_;
+}
+
+void scidBaseT::closeTreeIndex() const { treeIndex_.reset(); }
 
 errorT scidBaseT::beginTransaction() {
 	if (err_open_) // Allow modifications only if open returned OK

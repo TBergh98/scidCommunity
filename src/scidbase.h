@@ -37,6 +37,7 @@
 #include <vector>
 
 class SortCache;
+class TreeIndex;
 
 namespace filelock {
 class Lock;
@@ -98,6 +99,14 @@ struct scidBaseT {
 	void Close();
 
 	std::string getFileName() const;
+	/// All the files of the database (empty for the clipbase and memory bases).
+	std::vector<std::string> getFileNames() const;
+
+	/// The precomputed tree stats of this database (see treeindex.h), opened
+	/// on first use and dropped when the database changes.
+	TreeIndex& treeIndex() const;
+	/// Closes the index file, e.g. before rebuilding it; reopened on next use.
+	void closeTreeIndex() const;
 	bool isReadOnly() const { return fileMode_ == FMODE_ReadOnly; }
 	gamenumT numGames() const { return idx->GetNumGames(); }
 
@@ -433,6 +442,7 @@ public:
 
 private:
 	std::unique_ptr<ICodecDatabase> codec_;
+	mutable std::unique_ptr<TreeIndex> treeIndex_;
 	Index* idx;
 	NameBase* nb_;
 	fileModeT fileMode_; // Read-only, write-only, or both.

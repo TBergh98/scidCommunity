@@ -81,6 +81,7 @@ int sc_tree_stats    (TCL_ARGS);
 int sc_tree_cachesize (TCL_ARGS);
 int sc_tree_cacheinfo (TCL_ARGS);
 int sc_tree_nags      (TCL_ARGS);
+int sc_tree_index     (TCL_ARGS);
 
 int sc_var_delete     (TCL_ARGS);
 int sc_var_enter      (TCL_ARGS);

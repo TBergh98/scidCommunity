@@ -29,6 +29,7 @@ set(SCID_BASE
   ../src/codec_scid4.cpp
   ../src/epdbook.cpp
   ../src/scidbase.cpp
+  ../src/treeindex.cpp
   ../src/sortcache.cpp
   ../src/stored.cpp
   ../src/game.cpp ../src/position.cpp ../src/textbuf.cpp ../src/misc.cpp

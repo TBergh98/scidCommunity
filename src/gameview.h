@@ -418,6 +418,15 @@ public:
 		}
 	}
 
+	/// Like mainLine(), with the SAN info (check, ambiguity) of each move
+	/// filled in, as getMove() does.
+	template <typename FuncT> void mainLineSAN(FuncT fn) {
+		mainLine([&](FullMove move) {
+			board_.fillSANInfo(move);
+			return fn(move);
+		});
+	}
+
 	std::vector<byte> collectNextNAGs() {
 		auto it = bbuf_.data();
 		const auto end = bbuf_.data() + bbuf_.size();

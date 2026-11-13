@@ -166,6 +166,7 @@ SCID_OBJS = \
 	$(TMP_DIR)\scid.res \
 	$(TMP_DIR)\sortcache.obj \
 	$(TMP_DIR)\scidbase.obj \
+	$(TMP_DIR)\treeindex.obj \
 	$(TMP_DIR)\spellchk.obj \
 	$(TMP_DIR)\filter.obj \
 	$(TMP_DIR)\searchindex.obj \

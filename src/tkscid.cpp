@@ -41,6 +41,7 @@
 #include "stored.h"
 #include "timer.h"
 #include "tree.h"
+#include "treeindex.h"
 #include "ui.h"
 #include <algorithm>
 #include <atomic>
@@ -8228,8 +8229,8 @@ int sc_report_select(ClientData, Tcl_Interp *ti, int argc, const char **argv) {
 //  SEARCH and TREE functions
 
 int sc_tree(ClientData cd, Tcl_Interp *ti, int argc, const char **argv) {
-  static const char *options[] = {"stats", "cachesize", "cacheinfo", "nags", nullptr};
-  enum { TREE_STATS, TREE_CACHESIZE, TREE_CACHEINFO, TREE_NAGS };
+  static const char *options[] = {"stats", "cachesize", "cacheinfo", "nags", "index", nullptr};
+  enum { TREE_STATS, TREE_CACHESIZE, TREE_CACHEINFO, TREE_NAGS, TREE_INDEX };
 
   int index = -1;
   if (argc > 1) {
@@ -8248,6 +8249,9 @@ int sc_tree(ClientData cd, Tcl_Interp *ti, int argc, const char **argv) {
 
   case TREE_NAGS:
     return sc_tree_nags(cd, ti, argc, argv);
+
+  case TREE_INDEX:
+    return sc_tree_index(cd, ti, argc, argv);
 
   default:
     return InvalidCommand(ti, "sc_tree", options);
@@ -8292,11 +8296,17 @@ int sc_tree_stats(ClientData, Tcl_Interp *ti, int argc, const char **argv) {
     moveDepth = 4;
 
   Position searchPos = *(db->game->GetCurrentPos());
-  bool cancelled = false;
-  auto tree =
-      base->getTreeStat(filter, moveDepth, UI_CreateProgress(ti), &cancelled);
-  if (cancelled)
-    return UI_Result(ti, ERROR_UserCancel);
+  // The fast tree file holds the stats of the whole database, one move deep;
+  // positions it does not contain are computed from the games.
+  std::vector<TreeNode> tree;
+  if (moveDepth != 1 || std::string_view(argv[3]) != "tree" ||
+      !base->treeIndex().lookup(searchPos, tree)) {
+    bool cancelled = false;
+    tree = base->getTreeStat(filter, moveDepth, UI_CreateProgress(ti),
+                             &cancelled);
+    if (cancelled)
+      return UI_Result(ti, ERROR_UserCancel);
+  }
 
   // Calculate ECO for a move sequence (use ECO after all moves applied)
   auto calc_eco = [&](auto const &moves) {
@@ -8500,6 +8510,36 @@ int sc_tree_cacheinfo(ClientData, Tcl_Interp *ti, int argc, const char **argv) {
 
   return UI_Result(ti, OK, 0);
 }
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// sc_tree_index:
+//    The fast tree file of a database (see treeindex.h).
+//    sc_tree index baseId status -> unsupported | none | stale | active
+//    sc_tree index baseId build  -> writes the file, reporting progress
+int sc_tree_index(ClientData, Tcl_Interp *ti, int argc, const char **argv) {
+  static const char *usage = "Usage: sc_tree index baseId <status|build>";
+  if (argc != 4)
+    return UI_Result(ti, ERROR_BadArg, usage);
+
+  const scidBaseT *base = DBasePool::getBase(strGetUnsigned(argv[2]));
+  if (!base)
+    return UI_Result(ti, ERROR_BadArg, usage);
+
+  const std::string_view cmd = argv[3];
+  if (cmd == "status") {
+    static const char *names[] = {"unsupported", "none", "stale", "active"};
+    return UI_Result(ti, OK,
+                     names[static_cast<int>(base->treeIndex().status())]);
+  }
+  if (cmd == "build") {
+    const auto path = TreeIndex::pathFor(*base);
+    if (path.empty())
+      return UI_Result(ti, ERROR_BadArg, "This database has no files.");
+    base->closeTreeIndex(); // unmap the old file, which is going to be replaced
+    return UI_Result(ti, TreeIndex::build(*base, path, UI_CreateProgress(ti)));
+  }
+  return UI_Result(ti, ERROR_BadArg, usage);
+}
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // sc_tree_nags:
 //    Extract evaluation NAGs from games in the tree filter.
