@@ -404,6 +404,10 @@ proc ::tree::select { move baseNumber } {
 # Returns the list of databases whose tree filter needs to be updated when
 # the position of the main board changes.
 # It must also disable commands that depend on the current position.
+# Share of the tree window's progress bar used by the position search; the
+# move stats, usually the slower step, fill the rest.
+set ::tree::searchShare 0.3
+
 proc ::tree::listTreeBases {{base ""}} {
     if { $base == "" } {
         set base [sc_base list]
@@ -421,7 +425,9 @@ proc ::tree::listTreeBases {{base ""}} {
             $w.buttons.stop configure -state normal
             $w.progress coords bar 0 0 0 0
             grid $w.progress -in $w.statusframe -column 0 -row 0 -sticky nsew
-            set progress "$w.progress [lindex [grid bbox $w.statusframe] 2] 100"
+            # One bar for both steps: the search fills its first part and
+            # the move stats (::tree::dorefresh) the rest.
+            set progress "$w.progress [lindex [grid bbox $w.statusframe] 2] 100 $::tree::searchShare"
             $w.buttons.stop configure -command "
                 ::cancelUpdateTreeFilter [list $progress]
                 ::tree::restoreButtons $w
@@ -474,7 +480,7 @@ proc ::tree::dorefresh { baseNumber {filter "tree"}} {
   # base: drive the progress bar, which also keeps the UI responsive. Only
   # inside ::updateTreeFilter, which cancels and restarts on a new position.
   if {[info exists ::treeFilterUpdating_]} {
-    progressBarSet $w.progress [lindex [grid bbox $w.statusframe] 2] 100
+    progressBarContinue $w.progress [lindex [grid bbox $w.statusframe] 2] 100         $::tree::searchShare
   }
   set err [ catch { sc_tree stats $baseNumber $filter $tree(training$baseNumber) \
                                   $tree(order$baseNumber) $tree(movedepth$baseNumber) } moves]
