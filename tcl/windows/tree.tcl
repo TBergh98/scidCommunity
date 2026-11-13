@@ -414,9 +414,10 @@ proc ::tree::select { move baseNumber } {
 # move stats, usually the slower step, fill the rest. When they come from the
 # fast tree file (same conditions as sc_tree stats) they are instant.
 # shortcut: a position missing from the file is still computed from the games
-# with the bar already full; fine while those positions are the rare, fast ones.
+# with the bar already full; fine while those positions are the fast ones
+# (about 0.1 s right after the search, see src/treeindex.h).
 proc ::tree::searchShare {baseNumber} {
-  if {$::tree(allgames$baseNumber) && $::tree(movedepth$baseNumber) == 1
+  if {$::tree(allgames$baseNumber)
       && ![catch {sc_tree index $baseNumber status} status] && $status eq "active"} {
     return 1.0
   }

@@ -30,32 +30,38 @@ std::filesystem::path tempIndexPath() {
 } // namespace
 
 // Every position stored in the index must have exactly the stats that the
-// tree computes by searching the games.
+// tree computes by searching the games, at every depth.
 TEST(Test_TreeIndex, matches_tree_search) {
 	scidBaseT dbase;
 	ASSERT_EQ(OK, dbase.open("SCID4", FMODE_ReadOnly, database));
 	const auto path = tempIndexPath();
-	// A low threshold, to index many positions of the small test database.
-	ASSERT_EQ(OK, TreeIndex::build(dbase, path, {}, 2, 30));
+	// Low thresholds, to index many positions of the small test database.
+	ASSERT_EQ(OK, TreeIndex::build(dbase, path, {}, 2, 30, 4));
 
 	TreeIndex index;
 	ASSERT_EQ(TreeIndex::Status::Active, index.open(dbase, path));
 
 	auto filter = dbase.getFilter(dbase.newFilter());
-	size_t found = 0;
+	size_t found[TreeIndex::kMaxDepth + 1] = {};
 	for (gamenumT g = 0; g < dbase.numGames(); ++g) {
 		Game game;
 		ASSERT_EQ(OK, dbase.getGame(*dbase.getIndexEntry(g), game));
 		game.MoveToStart();
 		for (int ply = 0; ply < 30; ++ply) {
 			const Position pos = *game.GetCurrentPos();
-			std::vector<TreeNode> fromIndex;
-			if (index.lookup(pos, fromIndex)) {
-				++found;
-				ASSERT_TRUE(SearchPos(pos).setFilter(dbase, filter, {}));
-				const auto live = dbase.getTreeStat(filter);
-				ASSERT_EQ(live.size(), fromIndex.size()) << "game " << g + 1
-				                                         << " ply " << ply;
+			bool filterSet = false;
+			for (int depth = 1; depth <= TreeIndex::kMaxDepth; ++depth) {
+				std::vector<TreeNode> fromIndex;
+				if (!index.lookup(pos, fromIndex, depth))
+					continue;
+				++found[depth];
+				if (!filterSet) {
+					ASSERT_TRUE(SearchPos(pos).setFilter(dbase, filter, {}));
+					filterSet = true;
+				}
+				const auto live = dbase.getTreeStat(filter, depth);
+				ASSERT_EQ(live.size(), fromIndex.size())
+				    << "game " << g + 1 << " ply " << ply << " depth " << depth;
 				for (size_t i = 0; i < live.size(); ++i) {
 					auto const& a = live[i];
 					auto const& b = fromIndex[i];
@@ -75,7 +81,9 @@ TEST(Test_TreeIndex, matches_tree_search) {
 				break;
 		}
 	}
-	EXPECT_GT(found, 1000u);
+	EXPECT_GT(found[1], 1000u);
+	for (int depth = 2; depth <= TreeIndex::kMaxDepth; ++depth)
+		EXPECT_GT(found[depth], 100u) << "depth " << depth;
 	index.open(dbase, {}); // unmap the file: Windows cannot remove it otherwise
 	std::filesystem::remove(path);
 }

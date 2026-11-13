@@ -8301,11 +8301,11 @@ int sc_tree_stats(ClientData, Tcl_Interp *ti, int argc, const char **argv) {
   const bool fileOnly = argc > 7 && std::string_view(argv[7]) == "fileonly";
 
   Position searchPos = *(db->game->GetCurrentPos());
-  // The fast tree file holds the stats of the whole database, one move deep;
-  // positions it does not contain are computed from the games.
+  // The fast tree file holds the stats of the whole database; positions it
+  // does not contain are computed from the games.
   std::vector<TreeNode> tree;
-  if (moveDepth != 1 || std::string_view(argv[3]) != "tree" ||
-      !base->treeIndex().lookup(searchPos, tree)) {
+  if (std::string_view(argv[3]) != "tree" ||
+      !base->treeIndex().lookup(searchPos, tree, moveDepth)) {
     if (fileOnly)
       return UI_Result(ti, OK);
     bool cancelled = false;
