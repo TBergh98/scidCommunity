@@ -1511,7 +1511,9 @@ proc addMoveUCI {{moveUCI} {animate "-animate"}} {
 
     if { [::fics::setPremove $sq1 $sq2] || ! [::fics::playerCanMove]} { return 0 } ;# not player's turn
 
-    if {! [::move::Follow $moveUCI] && ! [addMoveEx $moveUCI var "-pgn $animate"]} {
+    # A piece dragged by hand is already on its square: honour "" (no animation)
+    # also when the move follows the game, or it jumps back to animate again.
+    if {! [::move::Follow $moveUCI $animate] && ! [addMoveEx $moveUCI var "-pgn $animate"]} {
         return 0
     }
 
