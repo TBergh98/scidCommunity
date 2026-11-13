@@ -455,9 +455,24 @@ proc ::tree::listTreeBases {{base ""}} {
             }
 
             lappend bases [list $baseNumber $filter $progress]
+            ::tree::showFileStats $baseNumber
         }
     }
     return $bases
+}
+
+# Show the moves of the fast tree file at once, before the search that fills
+# the "tree" filter; the full refresh after the search adds what needs the
+# filter (annotations, training) and enables the buttons.
+proc ::tree::showFileStats {baseNumber} {
+  global tree
+  if {! $tree(allgames$baseNumber)} { return }
+  if {[catch {sc_tree stats $baseNumber "tree" $tree(training$baseNumber)                 $tree(order$baseNumber) $tree(movedepth$baseNumber) fileonly} moves]
+      || $moves eq ""} { return }
+  # The auto annotations still refer to the previous position.
+  array unset ::tree::autoNag "$baseNumber,*"
+  catch {.treeWin$baseNumber.f.tl itemconfigure 0 -foreground darkBlue}
+  ::tree::displayLines $baseNumber $moves
 }
 
 proc ::tree::restoreButtons {w} {

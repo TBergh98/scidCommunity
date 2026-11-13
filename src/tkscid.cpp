@@ -8263,7 +8263,7 @@ int sc_tree(ClientData cd, Tcl_Interp *ti, int argc, const char **argv) {
 // @returns the tree stats of the specified filter
 int sc_tree_stats(ClientData, Tcl_Interp *ti, int argc, const char **argv) {
   static const char *usage = "Usage: sc_tree stats baseId filterId [<0|1>] "
-                             "[alpha|eco|frequency|score] [moveDepth]";
+                             "[alpha|eco|frequency|score] [moveDepth] [fileonly]";
 
   // Sort options: these should match the moveSortE enumerated type.
   static const char *sortOptions[] = {"alpha", "eco", "frequency", "score",
@@ -8295,12 +8295,19 @@ int sc_tree_stats(ClientData, Tcl_Interp *ti, int argc, const char **argv) {
   if (moveDepth > 4)
     moveDepth = 4;
 
+  // "fileonly": only the stats of the fast tree file, an empty result if it
+  // does not answer. The tree window shows them before the search that fills
+  // the tree filter, which the stats computed from the games need.
+  const bool fileOnly = argc > 7 && std::string_view(argv[7]) == "fileonly";
+
   Position searchPos = *(db->game->GetCurrentPos());
   // The fast tree file holds the stats of the whole database, one move deep;
   // positions it does not contain are computed from the games.
   std::vector<TreeNode> tree;
   if (moveDepth != 1 || std::string_view(argv[3]) != "tree" ||
       !base->treeIndex().lookup(searchPos, tree)) {
+    if (fileOnly)
+      return UI_Result(ti, OK);
     bool cancelled = false;
     tree = base->getTreeStat(filter, moveDepth, UI_CreateProgress(ti),
                              &cancelled);
