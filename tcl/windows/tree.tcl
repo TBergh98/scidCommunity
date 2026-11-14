@@ -182,7 +182,6 @@ proc ::tree::make { { baseNumber -1 } {locked 0} } {
   pack $w.buttons.depthlabel -side left -padx "15 3" -pady 2
   pack $w.buttons.depth -side left -padx "0 3" -pady 2
   packbuttons right $w.buttons.close $w.buttons.stop
-  pack $w.buttons.fast -side right -padx 3 -pady 2
   $w.buttons.stop configure -state disabled
   ::tree::updateFastButton $baseNumber
 
@@ -493,9 +492,19 @@ proc ::tree::restoreButtons {w} {
 # next to the database (see src/treeindex.h).
 
 # Show the state of the fast tree file on the button: pressed when it is used.
+# Offered only for read-only databases, where it never gets out of date (small
+# databases do not need it, and big ones are offered read-only, see file.tcl).
 proc ::tree::updateFastButton {baseNumber} {
   set b .treeWin$baseNumber.buttons.fast
   if {![winfo exists $b]} { return }
+  set readOnly [expr {![catch {sc_base isReadOnly $baseNumber} r] && $r}]
+  catch {.treeWin$baseNumber.menu.file entryconfigure [tr TreeFileFast] \
+      -state [expr {$readOnly ? "normal" : "disabled"}]}
+  if {!$readOnly} {
+    pack forget $b
+    return
+  }
+  pack $b -side right -padx 3 -pady 2 -after .treeWin$baseNumber.buttons.stop
   if {[catch {sc_tree index $baseNumber status} status]} { set status unsupported }
   set ::tree(fast$baseNumber) [expr {$status eq "active"}]
   $b configure -state [expr {$status eq "unsupported" ? "disabled" : "normal"}]
@@ -505,14 +514,26 @@ proc ::tree::updateFastButton {baseNumber} {
 proc ::tree::fastTreeButton {baseNumber} {
   # The checkbutton only shows the state: put it back before acting.
   ::tree::updateFastButton $baseNumber
-  if {[info exists ::treeFilterUpdating_]} { return }
+  if {[info exists ::treeFilterUpdating_] || ![sc_base isReadOnly $baseNumber]} { return }
   if {[catch {sc_tree index $baseNumber status} status] || $status eq "unsupported"} {
     return
   }
   set answer [tk_messageBox -parent .treeWin$baseNumber -icon question -type yesno \
       -title [tr TreeFileFast] -message [tr TreeFastConfirm]]
   if {$answer ne "yes"} { return }
+  ::tree::buildFastTree $baseNumber
+}
 
+# Offered when a database is made read-only, unless its fast tree is ready.
+proc ::tree::suggestFastTree {baseNumber} {
+  if {$baseNumber ni [sc_base list] || ![sc_base isReadOnly $baseNumber]} { return }
+  if {[catch {sc_tree index $baseNumber status} status] || $status ni {none stale}} { return }
+  set answer [tk_messageBox -parent . -icon question -type yesno \
+      -title [tr TreeFileFast] -message [tr TreeFastSuggest]]
+  if {$answer eq "yes"} { ::tree::buildFastTree $baseNumber }
+}
+
+proc ::tree::buildFastTree {baseNumber} {
   progressWindow "Scid" [tr TreeFastBuilding] $::tr(Cancel)
   set err [catch {sc_tree index $baseNumber build}]
   closeProgressWindow

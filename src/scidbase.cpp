@@ -170,6 +170,7 @@ void scidBaseT::Close() {
 	clear();
 	game->Clear();
 	fileMode_ = FMODE_None;
+	readOnlyByUser_ = false;
 	gameNumber = -1;
 	gameAltered = false;
 	all_filter_.Init(0);
@@ -1092,6 +1093,9 @@ errorT scidBaseT::getCompactStat(unsigned long long* n_deleted,
 }
 
 errorT scidBaseT::compact(const Progress& progress) {
+	if (isReadOnly())
+		return ERROR_FileReadOnly;
+
 	std::vector<std::filesystem::path> filenames;
 	for (auto const& e : codec_->getFilenames()) {
 		auto data = (const char8_t*)e.data();

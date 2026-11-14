@@ -107,7 +107,19 @@ struct scidBaseT {
 	TreeIndex& treeIndex() const;
 	/// Closes the index file, e.g. before rebuilding it; reopened on next use.
 	void closeTreeIndex() const;
-	bool isReadOnly() const { return fileMode_ == FMODE_ReadOnly; }
+	bool isReadOnly() const {
+		return fileMode_ == FMODE_ReadOnly || readOnlyByUser_;
+	}
+	/// Makes the database read-only (or writable again) until it is closed.
+	/// Every change goes through beginTransaction(), so it is safe at any time
+	/// between two commands. @returns ERROR_FileReadOnly if the files could
+	/// only be opened read-only.
+	errorT setReadOnly(bool readOnly) {
+		if (!readOnly && fileMode_ == FMODE_ReadOnly)
+			return ERROR_FileReadOnly;
+		readOnlyByUser_ = readOnly;
+		return OK;
+	}
 	gamenumT numGames() const { return idx->GetNumGames(); }
 
 	/// Returns a vector of tag pairs containing extra information about the
@@ -446,6 +458,7 @@ private:
 	Index* idx;
 	NameBase* nb_;
 	fileModeT fileMode_; // Read-only, write-only, or both.
+	bool readOnlyByUser_ = false;
 	std::vector<std::pair<std::string, Filter*>> filters_;
 	mutable Filter all_filter_{0};
 	mutable Stats* stats_;

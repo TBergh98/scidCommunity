@@ -1088,7 +1088,9 @@ UI_res_t sc_base (UI_extra_t cd, UI_handle_t ti, int argc, const char ** argv)
 	case BASE_IMPORT_NODUP:
 		return sc_base_import_nodup(dbase, ti, argc, argv);
 
-	case BASE_ISREADONLY:
+	case BASE_ISREADONLY: // sc_base isReadOnly baseId ?0|1?
+		if (argc == 4)
+			return UI_Result(ti, dbase->setReadOnly(strGetBoolean(argv[3])));
 		return UI_Result(ti, OK, dbase->isReadOnly());
 
 	case BASE_NUMGAMES:

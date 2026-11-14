@@ -124,6 +124,9 @@ proc ::file::Open {{fName ""}} {
     set ::initialDir(base) [file dirname "$fName"]
     ::recentFiles::add "$fName"
     set ::curr_db $::file::lastOpened
+    if {[string tolower [file extension $fName]] in {.si4 .si5 ""}} {
+      ::file::readOnly.apply $::curr_db
+    }
     ::windows::gamelist::Open $::curr_db
     ::notify::DatabaseChanged
     set gamenum 0
@@ -339,6 +342,72 @@ proc ::file::BaseName {baseIdx} {
     return [file rootname $fname]
   }
   return $fname
+}
+
+# Big databases are usually references that are only read: offer to make them
+# read-only, so the tree window can offer the fast tree, which any change to
+# the database would make out of date (see tree.tcl).
+# ::readOnlyBases maps a database file name to 1 (read-only) or 0 (never ask).
+set ::file::bigBaseGames 100000
+
+proc ::file::readOnly.apply {db} {
+  if {![info exists ::readOnlyBases]} { set ::readOnlyBases {} }
+  set fname [sc_base filename $db]
+  if {[dict exists $::readOnlyBases $fname]} {
+    if {[dict get $::readOnlyBases $fname]} { catch {sc_base isReadOnly $db 1} }
+    return
+  }
+  if {[sc_base isReadOnly $db] || [sc_base numGames $db] < $::file::bigBaseGames} { return }
+  lassign [::file::readOnly.ask $db] yes dontAsk
+  if {$yes} {
+    ::file::readOnly.set $db 1
+  } elseif {$dontAsk} {
+    dict set ::readOnlyBases $fname 0
+  }
+}
+
+# Returns {yes dontAsk}.
+proc ::file::readOnly.ask {db} {
+  set w .readOnlyAsk
+  win::createDialog $w
+  wm title $w "scidCommunity: [file tail [sc_base filename $db]]"
+  ttk::label $w.msg -wraplength 4i -justify left \
+      -text [format [tr ReadOnlyBigBase] [sc_base numGames $db]]
+  set ::file::readOnlyDontAsk 0
+  set ::file::readOnlyAnswer ""
+  ttk::checkbutton $w.dontAsk -text [tr ReadOnlyDontAsk] -variable ::file::readOnlyDontAsk
+  ttk::frame $w.b
+  dialogbutton $w.b.yes -text $::tr(Yes) -command {set ::file::readOnlyAnswer 1}
+  dialogbutton $w.b.no -text $::tr(No) -command {set ::file::readOnlyAnswer 0}
+  wm protocol $w WM_DELETE_WINDOW {set ::file::readOnlyAnswer 0}
+  pack $w.msg -side top -fill x
+  pack $w.dontAsk -side top -anchor w -pady "10 0"
+  pack $w.b -side top -fill x
+  packdlgbuttons $w.b.no $w.b.yes
+  focus $w.b.yes
+  catch {grab $w}
+  tkwait variable ::file::readOnlyAnswer
+  destroy $w
+  return [list $::file::readOnlyAnswer $::file::readOnlyDontAsk]
+}
+
+# Makes a database read-only or writable, and remembers the choice.
+proc ::file::readOnly.set {db value} {
+  if {[catch {sc_base isReadOnly $db $value}]} {
+    ERROR::MessageBox
+    return
+  }
+  if {![info exists ::readOnlyBases]} { set ::readOnlyBases {} }
+  dict set ::readOnlyBases [sc_base filename $db] $value
+  ::notify::DatabaseModified $db
+  ::tree::updateFastButton $db
+  # After idle: when opening, let the database finish loading first.
+  if {$value} { after idle [list ::tree::suggestFastTree $db] }
+}
+
+proc ::file::readOnlyBases.save {channelId} {
+  if {![info exists ::readOnlyBases]} { return }
+  puts $channelId "set ::readOnlyBases [list $::readOnlyBases]"
 }
 
 # Databases that will be automatically loaded ad startup

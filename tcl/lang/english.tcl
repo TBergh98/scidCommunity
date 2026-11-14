@@ -824,6 +824,10 @@ translate E TreeFastTipStale {The fast tree is out of date because the database 
 translate E TreeFastTipUnsupported {The fast tree is not available for this database}
 translate E TreeFastConfirm {Scid will read all the games once and save the statistics of the opening positions in a file next to the database. The tree then shows them at once.\n\nOn a large database this takes a few minutes and the file can take a few hundred MB.\n\nContinue?}
 translate E TreeFastBuilding {Preparing the fast tree...}
+translate E ReadOnlyBigBase {This database has %s games.\n\nMake it read-only? While it stays read-only you cannot add, save or delete games, but the tree window can show the statistics at once (lightning button).\n\nYou can make it editable again at any time: right-click the database and untick Read-only.}
+translate E TreeFastSuggest {The database is now read-only. Prepare the fast tree now?\n\nScid will read all the games once and save the statistics of the opening positions in a file next to the database, so the tree shows them at once. On a large database this takes a few minutes and the file can take a few hundred MB.\n\nYou can also do it later with the lightning button in the tree window.}
+translate E ReadOnlyDontAsk {Do not ask again for this database}
+translate E ReadOnlyBase {Read-only}
 translate E DoYouWantToSaveFirst {Do you want to save first}
 translate E AddToMask {Add to Mask}
 translate E RemoveFromMask {Remove from Mask}

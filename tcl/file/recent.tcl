@@ -37,6 +37,7 @@ proc ::recentFiles::save {{reportError 0}} {
     puts $f "set ::recentSort [list $::recentSort]"
   }
   ::file::autoLoadBases.save $f
+  ::file::readOnlyBases.save $f
   close $f
 }
 

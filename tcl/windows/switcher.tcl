@@ -612,6 +612,9 @@ proc ::windows::switcher::popupmenu {baseIdx w {abs_x ""} {abs_y ""} } {
       $w.menu add checkbutton -label "[tr LoadatStartup]" -variable ::sw_DummyCheckbutton \
         -command "::file::autoLoadBases.remove $baseIdx"
     }
+    set ::sw_ReadOnly [sc_base isReadOnly $baseIdx]
+    $w.menu add checkbutton -label [tr ReadOnlyBase] -variable ::sw_ReadOnly \
+      -command "::file::readOnly.set $baseIdx \$::sw_ReadOnly"
     $w.menu add command -label [tr AboutDatabase] -command [list apply {{base} {
       set name [file nativename [sc_base filename $base]]
       lassign [sc_base stats $base dates] y_min y_max y_mean
