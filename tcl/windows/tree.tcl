@@ -503,7 +503,9 @@ proc ::tree::updateFastButton {baseNumber} {
   catch {.treeWin$baseNumber.menu.file entryconfigure [tr TreeFileFast] \
       -state [expr {$readOnly ? "normal" : "disabled"}]}
   if {[catch {sc_tree index $baseNumber status} status]} { set status unsupported }
-  set slow [info exists ::tree::fastSlow([sc_base filename $baseNumber])]
+  # The window can be restored at startup before its database is open.
+  set slow [expr {![catch {sc_base filename $baseNumber} file]
+      && [info exists ::tree::fastSlow($file)]}]
   if {!$readOnly || !($status in {active stale} || ($slow && $status eq "none"))} {
     pack forget $b
     return
