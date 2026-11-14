@@ -494,20 +494,23 @@ proc ::tree::restoreButtons {w} {
 # Show the state of the fast tree file on the button: pressed when it is used.
 # Offered only for read-only databases, where it never gets out of date (small
 # databases do not need it, and big ones are offered read-only, see file.tcl).
+# The button shows only when the file exists or the tree was slow this session:
+# with enough free RAM the tree is fast anyway. The menu entry is always there.
 proc ::tree::updateFastButton {baseNumber} {
   set b .treeWin$baseNumber.buttons.fast
   if {![winfo exists $b]} { return }
   set readOnly [expr {![catch {sc_base isReadOnly $baseNumber} r] && $r}]
   catch {.treeWin$baseNumber.menu.file entryconfigure [tr TreeFileFast] \
       -state [expr {$readOnly ? "normal" : "disabled"}]}
-  if {!$readOnly} {
+  if {[catch {sc_tree index $baseNumber status} status]} { set status unsupported }
+  set slow [info exists ::tree::fastSlow([sc_base filename $baseNumber])]
+  if {!$readOnly || !($status in {active stale} || ($slow && $status eq "none"))} {
     pack forget $b
     return
   }
   pack $b -side right -padx 3 -pady 2 -after .treeWin$baseNumber.buttons.stop
-  if {[catch {sc_tree index $baseNumber status} status]} { set status unsupported }
   set ::tree(fast$baseNumber) [expr {$status eq "active"}]
-  $b configure -state [expr {$status eq "unsupported" ? "disabled" : "normal"}]
+  $b configure -state normal
   ::utils::tooltip::Set $b [tr TreeFastTip[string totitle $status]]
 }
 
@@ -524,23 +527,31 @@ proc ::tree::fastTreeButton {baseNumber} {
   ::tree::buildFastTree $baseNumber
 }
 
-# Offered once per session when the tree took 3 seconds or more ($ms) on a
-# read-only database whose fast tree is missing or out of date. Whether the tree
-# is slow depends on free RAM more than on the database size: once the database
-# files are in the OS cache, even 13M games take under a second.
+# Called after each tree update, which took $ms milliseconds. When it took 3
+# seconds or more, show the fast tree button and, once per session, offer to
+# build the file for a read-only database whose fast tree is missing or out of
+# date ("Do not ask again" is kept in ::fastTreeNoAsk). Whether the tree is slow
+# depends on free RAM more than on the database size: once the database files
+# are in the OS cache, even 13M games take under a second.
 proc ::tree::suggestFastTree {baseNumber ms} {
   if {$ms < 3000 || ![winfo exists .treeWin$baseNumber]} { return }
-  # Retried on the next slow position if a new search has already started.
-  if {[info exists ::treeFilterUpdating_]} { return }
-  if {$baseNumber ni [sc_base list] || ![sc_base isReadOnly $baseNumber]} { return }
-  if {[catch {sc_tree index $baseNumber status} status] || $status ni {none stale}} { return }
+  if {$baseNumber ni [sc_base list]} { return }
   set file [sc_base filename $baseNumber]
-  if {[info exists ::tree::fastSuggested($file)]} { return }
+  set ::tree::fastSlow($file) 1
+  ::tree::updateFastButton $baseNumber
+  # Retried on the next slow position if a new search has already started.
+  if {[info exists ::treeFilterUpdating_] || ![sc_base isReadOnly $baseNumber]} { return }
+  if {[catch {sc_tree index $baseNumber status} status] || $status ni {none stale}} { return }
+  if {![info exists ::fastTreeNoAsk]} { set ::fastTreeNoAsk {} }
+  if {[info exists ::tree::fastSuggested($file)] || $file in $::fastTreeNoAsk} { return }
   set ::tree::fastSuggested($file) 1
-  set answer [tk_messageBox -parent .treeWin$baseNumber -icon question -type yesno \
-      -title [tr TreeFileFast] \
-      -message [format [tr TreeFastSuggest] [expr {($ms + 500) / 1000}]]]
-  if {$answer eq "yes"} { ::tree::buildFastTree $baseNumber }
+  lassign [::file::askDontAsk $baseNumber \
+      [format [tr TreeFastSuggest] [expr {($ms + 500) / 1000}]]] yes dontAsk
+  if {$yes} {
+    ::tree::buildFastTree $baseNumber
+  } elseif {$dontAsk} {
+    lappend ::fastTreeNoAsk $file
+  }
 }
 
 proc ::tree::buildFastTree {baseNumber} {

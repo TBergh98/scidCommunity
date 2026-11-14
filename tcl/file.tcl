@@ -358,7 +358,8 @@ proc ::file::readOnly.apply {db} {
     return
   }
   if {[sc_base isReadOnly $db] || [sc_base numGames $db] < $::file::bigBaseGames} { return }
-  lassign [::file::readOnly.ask $db] yes dontAsk
+  lassign [::file::askDontAsk $db [format [tr ReadOnlyBigBase] [sc_base numGames $db]]] \
+      yes dontAsk
   if {$yes} {
     ::file::readOnly.set $db 1
   } elseif {$dontAsk} {
@@ -366,13 +367,13 @@ proc ::file::readOnly.apply {db} {
   }
 }
 
+# A yes/no question about database $db, with a "Do not ask again" box.
 # Returns {yes dontAsk}.
-proc ::file::readOnly.ask {db} {
-  set w .readOnlyAsk
+proc ::file::askDontAsk {db message} {
+  set w .askDontAsk
   win::createDialog $w
   wm title $w "scidCommunity: [file tail [sc_base filename $db]]"
-  ttk::label $w.msg -wraplength 4i -justify left \
-      -text [format [tr ReadOnlyBigBase] [sc_base numGames $db]]
+  ttk::label $w.msg -wraplength 4i -justify left -text $message
   set ::file::readOnlyDontAsk 0
   set ::file::readOnlyAnswer ""
   ttk::checkbutton $w.dontAsk -text [tr ReadOnlyDontAsk] -variable ::file::readOnlyDontAsk
@@ -403,9 +404,14 @@ proc ::file::readOnly.set {db value} {
   ::tree::updateFastButton $db
 }
 
+# Also saves ::fastTreeNoAsk, the databases whose fast tree is never offered (tree.tcl).
 proc ::file::readOnlyBases.save {channelId} {
-  if {![info exists ::readOnlyBases]} { return }
-  puts $channelId "set ::readOnlyBases [list $::readOnlyBases]"
+  if {[info exists ::readOnlyBases]} {
+    puts $channelId "set ::readOnlyBases [list $::readOnlyBases]"
+  }
+  if {[info exists ::fastTreeNoAsk]} {
+    puts $channelId "set ::fastTreeNoAsk [list $::fastTreeNoAsk]"
+  }
 }
 
 # Databases that will be automatically loaded ad startup
