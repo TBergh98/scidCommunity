@@ -346,6 +346,7 @@ proc ::updateTreeFilter {{base ""}} {
         #set n_filters [llength [lsort -unique -index 1 $::treeFilterUpdating_]]
 
         eval progressBarSet $progressbar
+        set start [clock milliseconds]
         set err [catch {sc_filter search $base "tree" board}]
         if {$err && $::errorCode != $::ERROR::UserCancel} {
             ERROR::MessageBox
@@ -358,7 +359,9 @@ proc ::updateTreeFilter {{base ""}} {
             }
             return
         }
+        # The search and the tree stats (run by ::notify::filter) both read the games.
         ::notify::filter $base tree
+        after idle [list ::tree::suggestFastTree $base [expr {[clock milliseconds] - $start}]]
     }
     unset ::treeFilterUpdating_
 }

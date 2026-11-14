@@ -401,8 +401,6 @@ proc ::file::readOnly.set {db value} {
   dict set ::readOnlyBases [sc_base filename $db] $value
   ::notify::DatabaseModified $db
   ::tree::updateFastButton $db
-  # After idle: when opening, let the database finish loading first.
-  if {$value} { after idle [list ::tree::suggestFastTree $db] }
 }
 
 proc ::file::readOnlyBases.save {channelId} {

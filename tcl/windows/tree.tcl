@@ -524,12 +524,22 @@ proc ::tree::fastTreeButton {baseNumber} {
   ::tree::buildFastTree $baseNumber
 }
 
-# Offered when a database is made read-only, unless its fast tree is ready.
-proc ::tree::suggestFastTree {baseNumber} {
+# Offered once per session when the tree took 3 seconds or more ($ms) on a
+# read-only database whose fast tree is missing or out of date. Whether the tree
+# is slow depends on free RAM more than on the database size: once the database
+# files are in the OS cache, even 13M games take under a second.
+proc ::tree::suggestFastTree {baseNumber ms} {
+  if {$ms < 3000 || ![winfo exists .treeWin$baseNumber]} { return }
+  # Retried on the next slow position if a new search has already started.
+  if {[info exists ::treeFilterUpdating_]} { return }
   if {$baseNumber ni [sc_base list] || ![sc_base isReadOnly $baseNumber]} { return }
   if {[catch {sc_tree index $baseNumber status} status] || $status ni {none stale}} { return }
-  set answer [tk_messageBox -parent . -icon question -type yesno \
-      -title [tr TreeFileFast] -message [tr TreeFastSuggest]]
+  set file [sc_base filename $baseNumber]
+  if {[info exists ::tree::fastSuggested($file)]} { return }
+  set ::tree::fastSuggested($file) 1
+  set answer [tk_messageBox -parent .treeWin$baseNumber -icon question -type yesno \
+      -title [tr TreeFileFast] \
+      -message [format [tr TreeFastSuggest] [expr {($ms + 500) / 1000}]]]
   if {$answer eq "yes"} { ::tree::buildFastTree $baseNumber }
 }
 

@@ -2073,7 +2073,7 @@ translate I ChangeIcon {Cambia icona...}
 translate I NewGameListWindow {Nuova finestra dell'elenco dei giochi}
 translate I LoadatStartup {Carica all'avvio}
 translate I ReadOnlyBigBase {Questo database contiene %s partite.\n\nVuoi renderlo di sola lettura? Finché resta così non potrai aggiungere, salvare o cancellare partite, ma la finestra Albero potrà mostrare le statistiche all'istante (pulsante col fulmine).\n\nPotrai renderlo di nuovo modificabile quando vuoi: tasto destro sul database, poi togli la spunta da Sola lettura.}
-translate I TreeFastSuggest {Il database ora è di sola lettura. Vuoi preparare adesso l'albero veloce?\n\nScid leggerà tutte le partite una volta e salverà le statistiche delle posizioni di apertura in un file accanto al database, così l'albero le mostrerà all'istante. Su un database grande servono alcuni minuti e il file può occupare qualche centinaio di MB.\n\nPuoi farlo anche più tardi con il pulsante col fulmine nella finestra Albero.}
+translate I TreeFastSuggest {L'albero ha impiegato %s secondi per questa posizione. Vuoi preparare adesso l'albero veloce?\n\nScid leggerà tutte le partite una volta e salverà le statistiche delle posizioni di apertura in un file accanto al database, così l'albero le mostrerà all'istante. Su un database grande servono alcuni minuti e il file può occupare qualche centinaio di MB.\n\nPuoi farlo anche più tardi con il pulsante col fulmine nella finestra Albero.}
 translate I ReadOnlyDontAsk {Non chiedere più per questo database}
 translate I ReadOnlyBase {Sola lettura}
 
