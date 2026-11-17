@@ -28,6 +28,10 @@ jobs:
       - name: Startup source order
         run: tclsh tests/tcl/startup_order.tcl
 
+      # Engine Speed Lab plugin, against a scripted UCI engine.
+      - name: Engine Speed Lab
+        run: tclsh tests/tcl/enginebench.tcl
+
       - name: Review toolbar icons
         run: tclsh tests/tcl/review_toolbar.tcl
 

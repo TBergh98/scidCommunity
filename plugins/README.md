@@ -32,3 +32,12 @@ be sure you know where it came from.
 
 There is no stable plugin API; a plugin that wraps scidCommunity's own procs
 may need updating when those procs change.
+
+## Bundled plugins
+
+| File | What it does |
+| --- | --- |
+| `50_enginebench.tcl` | **Engine Speed Lab**: benchmarks a UCI engine over a set of positions, writes a report (with a sheet for comparing against ChessBase), and tunes `Threads`, `Hash` and other options by measurement. Also runs from the command line. See [`docs/engine-speed-lab.md`](../docs/engine-speed-lab.md). |
+
+Bundled plugins are not loaded automatically: copy the file into the
+plugins folder described above to enable it.
