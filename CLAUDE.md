@@ -186,18 +186,23 @@ on `github` or on feature branches (it would show up in PRs):
 - CI also runs a **Tcl 9.0** job: anything touching file attributes,
   integer formatting, `CONST84`/list APIs must be checked against 9.0.
 - **My machines.** Check `$env:COMPUTERNAME` and use the matching row. If no
-  row matches (e.g. the home PC), ask me for the paths and add the row.
+  row matches (a new machine), ask me for the paths and add the row.
   Remotes everywhere: `origin` = my fork, `upstream` = `whelanh/scidCommunity`.
 
-  | | Work PC (Windows 11) | Home PC |
+  | | Work PC (Windows 11) | Home PC (`UBIK`, Windows 11) |
   | --- | --- | --- |
-  | Checkout | `C:\Users\bergamascot\Documents\Varie\scidCommunity-personal` (+ `..\scidCommunity-notes`) | <!-- fill in on the home PC: ask me when $env:COMPUTERNAME has no row --> |
-  | Compiler | VS Build Tools 2022 (`C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools`), not on PATH: `call "...\VC\Auxiliary\Build\vcvarsall.bat" x64` first; CMake bundled in `Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin` | VS Build Tools (path TBD) |
-  | Tcl/Tk for the build | 8.6.15 built from source like CI (`release.yml`): sources `Documents\Varie\tcltk`, install `Documents\Varie\tcldir` (no admin needed). The work PC sets `NoDefaultCurrentDirectoryInExePath=1`, so `nmake` cannot run its own `nmakehlp.exe` → `set NoDefaultCurrentDirectoryInExePath=` in the cmd before `nmake` | |
-  | Build | `build\` in the checkout, `cmake -DTCL_INCLUDE_PATH=...\tcldir\include -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DWITH_MD_LIBRARY=OFF ..` then `cmake --build . --config Release --target INSTALL` → `build\install\bin\scidCommunity.exe` (first built 2026-11-23, Tcl+Tk+scid in a few minutes; `build\` is git-ignored) | |
-  | `tclsh` for harnesses | Anaconda 8.6 on PATH (`anaconda3\Library\bin\tclsh.exe`); the built `tcldir\bin\tclsh86t.exe` also works. No local Tcl 9.0 → CI covers it | |
-  | xvfb / GUI tests | none (Windows) → GUI tests in CI or WSL | |
-  | Stockfish | `C:\Users\bergamascot\Documents\Varie\stockfish\stockfish\stockfish-windows-x86-64-universal.exe` | |
+  | Checkout | `C:\Users\bergamascot\Documents\Varie\scidCommunity-personal` (+ `..\scidCommunity-notes`) | `D:\MyDocuments\SCACCHI\Software\scidCommunity-repo\scidCommunity` (+ `..\scidCommunity-notes`, the `claude-notes` worktree). Its `CLAUDE.md` is the import stub, not a symlink |
+  | Compiler | VS Build Tools 2022 (`C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools`), not on PATH: `call "...\VC\Auxiliary\Build\vcvarsall.bat" x64` first; CMake bundled in `Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin` | **MinGW**, not MSVC: WinLibs GCC 16.2 (UCRT) + cmake + ninja in the private toolchain `D:\MyDocuments\SCACCHI\Software\scid-toolchain\` (`mingw64\`; also on PATH via winget). The repo's own CMake supports only MSVC on Windows, so the toolchain has its own `CMakeLists.txt` |
+  | Tcl/Tk for the build | 8.6.15 built from source like CI (`release.yml`): sources `Documents\Varie\tcltk`, install `Documents\Varie\tcldir` (no admin needed). The work PC sets `NoDefaultCurrentDirectoryInExePath=1`, so `nmake` cannot run its own `nmakehlp.exe` → `set NoDefaultCurrentDirectoryInExePath=` in the cmd before `nmake` | 8.6.15 copy inside the toolchain: headers `tcltk\`, import libs `lib\`, DLLs and Tcl/Tk libraries `runtime\` (does not use `C:\Program Files`) |
+  | Build | `build\` in the checkout, `cmake -DTCL_INCLUDE_PATH=...\tcldir\include -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DWITH_MD_LIBRARY=OFF ..` then `cmake --build . --config Release --target INSTALL` → `build\install\bin\scidCommunity.exe` (first built 2026-11-23, Tcl+Tk+scid in a few minutes; `build\` is git-ignored) | `scid-toolchain\build.cmd` (incremental) → `<checkout>\build\scidCommunity.exe`. The exe loads **`tcl\` of the checkout live**: Tcl changes show on restart, rebuild only after `src\` changes; after adding/removing a `.cpp`, delete `scid-toolchain\build\` first. `run-branch.cmd` in the checkout root (git-excluded) builds the current branch and starts the GUI — close any open instance first |
+  | Run isolated | — | `scid-toolchain\scid.cmd [script.tcl]`: own Tcl/Tk, user folder redirected to `scid-toolchain\userdata\scidCommunity\` (never touches `%APPDATA%`). `scid.cmd script.tcl` runs `sc_*` commands without a GUI (`puts` → stdout, end with `exit 0`); `scid.cmd --headless` is the JSON-RPC mode (`docs/HEADLESS_API_SPEC.md`); a `.tcl` in `userdata\scidCommunity\plugins\` runs at GUI start and `scid-toolchain\shot.ps1 -Out x.png -Title scid` captures the window |
+  | Installed copy (visual check) | — | scidCommunity 5.1.1 in `C:\Program Files\scidCommunity\` (Tcl in `share\scid\tcl\`), user folder `%APPDATA%\scidCommunity\`. To try repo Tcl there without a build, drop a `NN_name.tcl` in `%APPDATA%\scidCommunity\plugins\` (see `plugins/README.md`); `src\` changes never reach it |
+  | `tclsh` for harnesses | Anaconda 8.6 on PATH (`anaconda3\Library\bin\tclsh.exe`); the built `tcldir\bin\tclsh86t.exe` also works. No local Tcl 9.0 → CI covers it | **No `tclsh` on this PC.** Run the harnesses with the built exe: `scid-toolchain\scid.cmd tests\tcl\<name>.tcl` (checked 2026-11-24 on `startup_order.tcl`: 32 checks, 0 failures). Read the printed `failures` line, I have not checked that the exit code reflects it. No local Tcl 9.0 → CI covers it |
+  | xvfb / GUI tests | none (Windows) → GUI tests in CI or WSL | none; `wsl.exe` exists but I have not set up a distro for this. Drive the GUI with a plugin + `shot.ps1` (above) or leave it to CI |
+  | Stockfish | `C:\Users\bergamascot\Documents\Varie\stockfish\stockfish\stockfish-windows-x86-64-universal.exe` | `C:\Program Files\scidCommunity\engines\stockfish.exe` (ships with the installed app; no copy under `D:\...\Software`) |
+
+  Home PC details also live in `LOCAL_DEV.md` (checkout root, git-excluded,
+  that PC only). If the two disagree, fix whichever is stale and say so.
 
 - **Minimum before every push**: the `tests/tcl/*.tcl` harnesses of the
   touched area + `tests/tcl/startup_order.tcl`; app/GUI/Tcl 9.0 are left to CI.
