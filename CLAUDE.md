@@ -186,7 +186,7 @@ on `github` or on feature branches (it would show up in PRs):
 
   | | Work PC (Windows 11) | Home PC |
   | --- | --- | --- |
-  | Checkout | `C:\Users\bergamascot\Documents\Varie\scidCommunity-personal` (+ `..\scidCommunity-notes`) | <!-- TODO(Q5-home) --> |
+  | Checkout | `C:\Users\bergamascot\Documents\Varie\scidCommunity-personal` (+ `..\scidCommunity-notes`) | <!-- fill in on the home PC: ask me when $env:COMPUTERNAME has no row --> |
   | Compiler | VS Build Tools 2022 (`C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools`), not on PATH: `call "...\VC\Auxiliary\Build\vcvarsall.bat" x64` first; CMake bundled in `Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin` | VS Build Tools (path TBD) |
   | Tcl/Tk for the build | 8.6.15 built from source like CI (`release.yml`): sources `Documents\Varie\tcltk`, install `Documents\Varie\tcldir` (no admin needed). The work PC sets `NoDefaultCurrentDirectoryInExePath=1`, so `nmake` cannot run its own `nmakehlp.exe` → `set NoDefaultCurrentDirectoryInExePath=` in the cmd before `nmake` | |
   | Build | `build\` in the checkout, `cmake -DTCL_INCLUDE_PATH=...\tcldir\include -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DWITH_MD_LIBRARY=OFF ..` then `cmake --build . --config Release --target INSTALL` → `build\install\bin\scidCommunity.exe` (first built 2026-11-23, Tcl+Tk+scid in a few minutes; `build\` is git-ignored) | |
