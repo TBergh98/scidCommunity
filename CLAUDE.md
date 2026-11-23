@@ -35,6 +35,23 @@ ln -s ../scidCommunity-notes/CLAUDE.md CLAUDE.md
 echo '/CLAUDE.md' >> .git/info/exclude
 ```
 
+On **Windows PowerShell 5.1** (my work PC, checkout
+`C:\Users\bergamascot\Documents\Varie\scidCommunity-personal`): no `&&`, no
+`ln`, and `echo >>` writes UTF-16, which git cannot read. Run one per line:
+
+```powershell
+git fetch origin claude-notes
+git worktree add ..\scidCommunity-notes claude-notes
+Add-Content -Path .git\info\exclude -Value '/CLAUDE.md' -Encoding ascii
+New-Item -ItemType SymbolicLink -Path CLAUDE.md -Target ..\scidCommunity-notes\CLAUDE.md
+```
+
+The symlink needs Developer Mode or an admin shell. Without it, use an import
+stub instead: `[IO.File]::WriteAllText("$PWD\CLAUDE.md", "@../scidCommunity-notes/CLAUDE.md`n")`
+(then edit the real file in `..\scidCommunity-notes`). Write hook files with
+`[IO.File]::WriteAllText` too (LF line endings, no BOM). Claude: on Windows,
+give me PowerShell commands, not bash.
+
 Editing: edit `CLAUDE.md` as usual (it is the symlink), then commit from the
 notes worktree:
 
