@@ -77,6 +77,8 @@ In each set folder:
   marks.tsv                 the ! and !! of every evaluation, versioned
   log.tsv                   every exercise played and every session: the
                             statistics are computed from this file
+  ring-<date>.tsv           statistics put aside by Reset statistics, like a
+                            tree's growth rings; Restore brings the newest back
   set.tsv                   the set's name, source and schedule
 
 log.tsv is the only file that cannot be recreated: back it up with the set.
