@@ -52,8 +52,13 @@ stub instead: `[IO.File]::WriteAllText("$PWD\CLAUDE.md", "@../scidCommunity-note
 `[IO.File]::WriteAllText` too (LF line endings, no BOM). Claude: on Windows,
 give me PowerShell commands, not bash.
 
-Editing: edit `CLAUDE.md` as usual (it is the symlink), then commit from the
-notes worktree:
+**Auto-sync (Claude, mandatory):** every time you change this file, commit and
+push it to `claude-notes` yourself, in the same turn, without asking me. Never
+leave notes edits uncommitted or unpushed, so every machine stays up to date.
+Commit only this file, from the notes worktree (never the main checkout).
+
+Editing: edit `CLAUDE.md` as usual (it is the symlink, or the stub pointing at
+the worktree), then commit from the notes worktree:
 
 ```bash
 git -C ../scidCommunity-notes commit -am "notes: <what changed>" && git -C ../scidCommunity-notes push
