@@ -180,7 +180,22 @@ on `github` or on feature branches (it would show up in PRs):
   runs so a hang shows where it stopped).
 - CI also runs a **Tcl 9.0** job: anything touching file attributes,
   integer formatting, `CONST84`/list APIs must be checked against 9.0.
-- <!-- TODO(Q5): my local machine — OS, build system and build dir, Tcl version (8.6/9.0), xvfb, Stockfish path, upstream remote name — and the minimum test set before every push. Ask me at the start of the first local session. -->
+- **My machines.** Check `$env:COMPUTERNAME` and use the matching row. If no
+  row matches (e.g. the home PC), ask me for the paths and add the row.
+  Remotes everywhere: `origin` = my fork, `upstream` = `whelanh/scidCommunity`.
+
+  | | Work PC (Windows 11) | Home PC |
+  | --- | --- | --- |
+  | Checkout | `C:\Users\bergamascot\Documents\Varie\scidCommunity-personal` (+ `..\scidCommunity-notes`) | <!-- TODO(Q5-home) --> |
+  | Compiler | VS Build Tools 2022 (`C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools`), not on PATH: `call "...\VC\Auxiliary\Build\vcvarsall.bat" x64` first; CMake bundled in `Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin` | VS Build Tools (path TBD) |
+  | Tcl/Tk for the build | 8.6.15 built from source like CI (`release.yml`): sources `Documents\Varie\tcltk`, install `Documents\Varie\tcldir` (no admin needed). The work PC sets `NoDefaultCurrentDirectoryInExePath=1`, so `nmake` cannot run its own `nmakehlp.exe` → `set NoDefaultCurrentDirectoryInExePath=` in the cmd before `nmake` | |
+  | Build | `build\` in the checkout, `cmake -DTCL_INCLUDE_PATH=...\tcldir\include -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DWITH_MD_LIBRARY=OFF ..` then `cmake --build . --config Release --target INSTALL` → `build\install\bin\scidCommunity.exe` (first built 2026-11-23, Tcl+Tk+scid in a few minutes; `build\` is git-ignored) | |
+  | `tclsh` for harnesses | Anaconda 8.6 on PATH (`anaconda3\Library\bin\tclsh.exe`); the built `tcldir\bin\tclsh86t.exe` also works. No local Tcl 9.0 → CI covers it | |
+  | xvfb / GUI tests | none (Windows) → GUI tests in CI or WSL | |
+  | Stockfish | `C:\Users\bergamascot\Documents\Varie\stockfish\stockfish\stockfish-windows-x86-64-universal.exe` | |
+
+- **Minimum before every push**: the `tests/tcl/*.tcl` harnesses of the
+  touched area + `tests/tcl/startup_order.tcl`; app/GUI/Tcl 9.0 are left to CI.
 
 ### 1.5 Translations
 
@@ -207,7 +222,20 @@ on `github` or on feature branches (it would show up in PRs):
 - Ask before large design choices; for small UI tweaks just do them.
 - Measure before building on an assumption (the Woodpecker feasibility probe
   `ed4cf44` before the trainer; live API checks for Lichess behaviour).
-- <!-- TODO(Q6): anything else (model per task, how much autonomy, when to stop and ask). -->
+- **Models** (I usually pick the model myself; these are the defaults):
+  Opus for design, review and pre-PR fixes; Sonnet for well-defined bug
+  fixes and small UI changes; Sonnet with an Opus advisor for well-defined
+  tasks that need reading a lot of context.
+- **Autonomy**:
+  - Make atomic commits as you go, without asking, on branches that are not
+    in an open PR.
+  - My personal/private branches: commit freely, **push only when I ask**
+    (`claude-notes` is the exception: commit and push, §0).
+  - A branch in an **open PR** (others see or build on it): ask before
+    committing.
+- **Stop and ask** on design choices, and before any change the maintainer
+  might frown at (touching shared modules, behaviour changes outside the
+  feature, new dependencies, style departures).
 
 ---
 
@@ -265,7 +293,8 @@ on `github` or on feature branches (it would show up in PRs):
   destroyed while `update` drained events, translations' `\n` restored
   (`df5c639c`); `sc_game pgn` localises piece letters in non-English UIs and
   Lichess rejected them → new `-english` option (`ce3190b7`).
-- <!-- TODO(Q7): my own notes on this feature (what I did vs. what the maintainer did, open items). -->
+- I implemented the whole feature; the maintainer merged it (with the fixes
+  above). Nothing open.
 
 ### 3.4 Tree stats progress bar + cancel — upstream as `3e5032dc` (PR #484)
 
@@ -273,7 +302,20 @@ on `github` or on feature branches (it would show up in PRs):
   maintainer: `progressBarSet` scale + `progressBarContinue`, tree search
   fills 30 %, stats the rest; cancel on a changed position marks the tree
   stale and reschedules.
-- <!-- TODO(Q7): anything to remember (why it was re-done rather than merged?). -->
+- Origin: my Discussion #479 proposed a precomputed "fast tree" file
+  (`<base>.tree`, 438 MB for 13M games, ~3 min build) because the Tree
+  window froze on huge bases. The maintainer preferred fixing the normal
+  path first: start position answered from the index
+  (`IndexEntry::GetStartFlag()` instead of the serial loop in
+  `SearchPos::setFilterStdStart`, 20 s cold search gone), multi-threaded
+  `scidBaseT::getTreeStat`, sequential I/O instead of `MADV_RANDOM`
+  (`src/filemap.h`), tree cache bounded in MB, timings exposed to Tcl. He
+  merged the C++ plumbing himself (`eab694d`) and took only my Tcl/UI
+  progress+cancel part (PR #484, released in 5.1.4.67). The fast-tree file
+  was not merged; it stays an option for low-RAM users (depth 2–4 stats on
+  127k+-game positions need it).
+- Lesson: for performance problems he wants the existing path optimised
+  before adding new files/formats — propose in a Discussion first.
 
 ### 3.5 Lichess Puzzles difficulties — `40f603f`
 
@@ -397,4 +439,7 @@ Branches on my fork (as of 2026-11-23):
 Next topics:
 - Woodpecker follow-ups (after #529).
 - Engine optimisation experiments (Engine Speed Lab, parallel evaluation).
-- Replay-training. <!-- TODO(Q8): what Replay-training is about, where its code lives (not on upstream `github` yet), goal of the next step. -->
+- Replay-training: spaced repetition on the opening repertoire read from
+  the masks, with algorithmic tricks so large repertoires scale (no
+  thousands of positions to review per day). Design draft in `PLAN.md` on
+  its branch — still a draft. <!-- TODO(Q8): branch name — not on the fork or on the work PC as of 2026-11-23 (probably only on the home PC). -->
