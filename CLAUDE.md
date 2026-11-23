@@ -357,6 +357,36 @@ on `github` or on feature branches (it would show up in PRs):
     set (`5a7b5dc`).
 - Fixed by the maintainer in review (`16c8e22`, `6dd59ff`) — see §4.
 
+### 3.7 Repertoire Recall (Replay-training) — Nov 2026, private → not yet
+
+- **Where**: private repo `TBergh98/scidCommunity-private`, branch
+  `replay-training` (not on the public fork). Read it without a remote:
+  `git fetch https://github.com/TBergh98/scidCommunity-private.git replay-training`
+  then `git show FETCH_HEAD:PLAN.md`. The design is `PLAN.md` (Italian,
+  still a draft) + `docs/repertoire-recall.md`; bugs found along the way go
+  in `PR-DA-APRIRE.md` and become separate upstream PRs at the end (phase 7).
+- **Goal**: spaced repetition of the repertoire read from the Tree masks,
+  weighted by how likely each line is against opponents of the chosen Elo
+  band, without sessions blowing up on large repertoires.
+- **Files**: `tcl/tools/reptrain_{core,db,ui}.tcl` (core is pure Tcl, run by
+  `tclsh` and by the simulations), `tests/tcl/reptrain_{core,db}.tcl`,
+  `tests/reptrain_db_app.tcl`, `tests/reptrain_gui.{sh,tcl}`,
+  `scripts/reptrain/` (sim, plots, DB diagnosis). Planned C++:
+  `scidBaseT::getMaskStats` + `sc_tree maskstats` (one pass over the
+  base for all mask positions, per-50-Elo histograms, cached).
+- **Key decisions**: item = (my-turn position, repertoire move); one shared
+  state keyed by position+move (survives mask/database/Elo changes);
+  priority = Σ need × (1 − R) / minutes, Gumbel-top-k sampling; time budget
+  with ±1 min; active repertoire = 95% of probability mass; 25% new quota;
+  memory `R = 0.9^(days/S)` with 3 outcomes; chunks by per-boundary
+  Beta-Bernoulli hesitation (HMM rejected: too little data); Elo kernel
+  left Gaussian σ 133 cut at −400, right exponential H 200 (to confirm on
+  plots); online and blitz/rapid games excluded by default; data as TSV
+  under `<user dir>/reptrain/`, state rebuildable from the append-only log.
+- **State (Nov 18)**: phases 5 (statistics) and 6 (adaptive chunks) done in
+  the cloud, **to be tried locally**; last work was on malleable clusters
+  and slow answers. Open: ADR `docs/adr-reptrain.md` (TODO in `PLAN.md`).
+
 ---
 
 ## 4. Lessons learned (checklist before every PR)
@@ -435,11 +465,9 @@ Branches on my fork (as of 2026-11-23):
 | `woodpeckerOptimization` | in progress | `dfc063bd` grades a set on several engines at once (ids 21–28, 1 thread, Hash 64; 160 puzzles: 69 s → 31 s on 4 engines). Marks differ from a serial run on 4–11 % of puzzles (per-engine hash); `tests/woodpecker_eval_parallel.tcl` fails above 20 %. Touches `review_driver.tcl` (shared with Game Review → keep its tests green). |
 | `feature/engine-speed-bench` | in progress | `f6433796` Engine Speed Lab plugin (`plugins/50_enginebench.tcl`, `docs/engine-speed-lab.md`, `tests/tcl/enginebench.tcl`): benchmark, Threads/Hash tuning by paired measurement (accept only > 1 % and > 2 SE). Authored as "Claude" — fix the author before a PR (§1.2). |
 | `woodpecker-pr` | merged | PR #529, upstream `4638d7e`. |
+| `replay-training` (private repo) | in progress | Repertoire Recall, §3.7. Last commit `66112d76` (Nov 18). 37 of the last 40 commits authored as "Claude" — fix before a PR (§1.2). |
 
 Next topics:
 - Woodpecker follow-ups (after #529).
 - Engine optimisation experiments (Engine Speed Lab, parallel evaluation).
-- Replay-training: spaced repetition on the opening repertoire read from
-  the masks, with algorithmic tricks so large repertoires scale (no
-  thousands of positions to review per day). Design draft in `PLAN.md` on
-  its branch — still a draft. <!-- TODO(Q8): branch name — not on the fork or on the work PC as of 2026-11-23 (probably only on the home PC). -->
+- Replay-training ("Repertoire Recall", §3.7).
