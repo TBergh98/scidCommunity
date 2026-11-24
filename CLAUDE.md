@@ -484,7 +484,7 @@ Branches on my fork (as of 2026-11-24):
 
 | Branch | State | Notes |
 | --- | --- | --- |
-| `woodpeckerOptimization` | in progress, **two features + two fixes mixed: split before any PR** (see "Before the Woodpecker PRs" below) | `dfc063bd` grades a set on several engines at once (ids 21–28, 1 thread, Hash 64; 160 puzzles: 69 s → 31 s on 4 engines). Marks differ from a serial run on 4–11 % of puzzles (per-engine hash); `tests/woodpecker_eval_parallel.tcl` fails above 20 %. Touches `review_driver.tcl` (shared with Game Review → keep its tests green). Then (Nov 23–24, cloud): inner circle, reset/restore statistics, daily load in the new-set dialog (`51e3cb3`..`438a3f3`, pushed Nov 24; then `7886457`, `3152582`, `e99c32e`), design in `docs/woodpecker-method.md` Decisions 8–9. |
+| `woodpeckerOptimization` | in progress, **two features + two fixes mixed: split before any PR** (see "Before the Woodpecker PRs" below) | `dfc063bd` grades a set on several engines at once (ids 21–28, 1 thread, Hash 64; 160 puzzles: 69 s → 31 s on 4 engines). Marks differ from a serial run on 4–11 % of puzzles (per-engine hash); `tests/woodpecker_eval_parallel.tcl` fails above 20 %. Touches `review_driver.tcl` (shared with Game Review → keep its tests green). Then (Nov 23–24, cloud): inner circle, reset/restore statistics, daily load in the new-set dialog (`51e3cb3`..`438a3f3`, then `7886457`, `3152582`, `e99c32e`, `19a6387`; all pushed Nov 24), design in `docs/woodpecker-method.md` Decisions 8–9. |
 | `feature/engine-speed-bench` | in progress | `f6433796` Engine Speed Lab plugin (`plugins/50_enginebench.tcl`, `docs/engine-speed-lab.md`, `tests/tcl/enginebench.tcl`): benchmark, Threads/Hash tuning by paired measurement (accept only > 1 % and > 2 SE). Authored as "Claude" — fix the author before a PR (§1.2). |
 | `woodpecker-pr` | merged | PR #529, upstream `4638d7e`. |
 | `replay-training` (private repo) | in progress | Repertoire Recall, §3.7. Last commit `66112d76` (Nov 18). 37 of the last 40 commits authored as "Claude" — fix before a PR (§1.2). |
@@ -498,10 +498,17 @@ Claude: when a PR from this branch comes up, walk through this list first.
    - *parallel evaluation*: `dfc063b` alone;
    - *inner circle + reset + daily load*: `51e3cb3`, `9fa357e`, `d05c2e2`,
      `2181821`, `ff19585`, `925eee8`, `438a3f3`, `3152582`, `e99c32e`;
-   - *fix, the next move while the reply animates* (`7886457`: the reply
-     waited 200 ms with the opponent to move, so a piece grabbed then did not
-     lift and the move was lost; bug in #529 code, found by me Nov 24): its
-     own small PR, like `41c16bc`;
+   - *fix, the next move while the reply animates* (`7886457` dragged
+     moves, `19a6387` click moves: the reply waited 200 ms with the opponent
+     to move, so a piece grabbed then did not lift and the move was lost; bug
+     in #529 code, found by me Nov 24): its own small PR, like `41c16bc`.
+     **Tell the maintainer in that PR**: for players who move by clicks it
+     is a visible change: in a Woodpecker session their own move no longer
+     slides, it lands at once when the reply starts (`::board::update`
+     cancels the running animation); only the reply slides. Chosen to keep
+     the fix inside the trainer, without touching `pressSquare`/board code;
+     the alternative (a premove hook in `main.tcl`) would keep both
+     animations but touch shared code;
    - *fix, leaving a session mid-exercise* (`41c16bc`, bug in #529 code,
      found Nov 23): its own small PR, or the first commit of the feature PR
      with a clear "fix" in the description;
