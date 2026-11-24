@@ -147,6 +147,15 @@ on `github` or on feature branches (it would show up in PRs):
   author (11 Woodpecker commits of Nov 17 were authored that way): the cloud
   environment's setup script sets my identity; if `git config user.name`
   still says `Claude`, stop and tell me before committing.
+- **Cloud sessions: author me, committer Claude** (decided 2026-11-24).
+  Cloud git signs every commit with Anthropic's SSH key, and GitHub marks a
+  signed commit "Verified" only when the key belongs to the committer's
+  email: my email as committer gave "Unverified". So in the cloud checkout:
+  `git config author.name TBergh98`, `git config author.email <my email>`,
+  `git config committer.name Claude`, `git config committer.email
+  noreply@anthropic.com`. GitHub then shows "TBergh98 authored and Claude
+  committed", Verified, and the commit counts as mine. Locally (my own
+  unsigned commits) nothing changes.
 - Never commit secrets, Lichess tokens, local paths, or files from
   `~/Downloads/*` reference trees.
 
@@ -427,7 +436,7 @@ on `github` or on feature branches (it would show up in PRs):
       shared resources: assume another window uses them.
 - [ ] `::docking::layout_restore` rebuilds `.main` and lets Tk idle
       half-way: run queued `after idle` work (`update idletasks`) before
-      it, or it hits a board without its toolbar (`7ee5f62`).
+      it, or it hits a board without its toolbar (`41c16bc`).
 
 **Tcl 8.6 vs 9.0**
 - [ ] Don't compare formatted values whose spelling changed: e.g.
@@ -475,7 +484,7 @@ Branches on my fork (as of 2026-11-24):
 
 | Branch | State | Notes |
 | --- | --- | --- |
-| `woodpeckerOptimization` | in progress, **two features + two fixes mixed: split before any PR** (see "Before the Woodpecker PRs" below) | `dfc063bd` grades a set on several engines at once (ids 21–28, 1 thread, Hash 64; 160 puzzles: 69 s → 31 s on 4 engines). Marks differ from a serial run on 4–11 % of puzzles (per-engine hash); `tests/woodpecker_eval_parallel.tcl` fails above 20 %. Touches `review_driver.tcl` (shared with Game Review → keep its tests green). Then (Nov 23–24, cloud): inner circle, reset/restore statistics, daily load in the new-set dialog (`9b6298b`..`9a397c1`), design in `docs/woodpecker-method.md` Decisions 8–9. |
+| `woodpeckerOptimization` | in progress, **two features + two fixes mixed: split before any PR** (see "Before the Woodpecker PRs" below) | `dfc063bd` grades a set on several engines at once (ids 21–28, 1 thread, Hash 64; 160 puzzles: 69 s → 31 s on 4 engines). Marks differ from a serial run on 4–11 % of puzzles (per-engine hash); `tests/woodpecker_eval_parallel.tcl` fails above 20 %. Touches `review_driver.tcl` (shared with Game Review → keep its tests green). Then (Nov 23–24, cloud): inner circle, reset/restore statistics, daily load in the new-set dialog (`51e3cb3`..`438a3f3`, pushed Nov 24), design in `docs/woodpecker-method.md` Decisions 8–9. |
 | `feature/engine-speed-bench` | in progress | `f6433796` Engine Speed Lab plugin (`plugins/50_enginebench.tcl`, `docs/engine-speed-lab.md`, `tests/tcl/enginebench.tcl`): benchmark, Threads/Hash tuning by paired measurement (accept only > 1 % and > 2 SE). Authored as "Claude" — fix the author before a PR (§1.2). |
 | `woodpecker-pr` | merged | PR #529, upstream `4638d7e`. |
 | `replay-training` (private repo) | in progress | Repertoire Recall, §3.7. Last commit `66112d76` (Nov 18). 37 of the last 40 commits authored as "Claude" — fix before a PR (§1.2). |
@@ -487,22 +496,25 @@ Claude: when a PR from this branch comes up, walk through this list first.
 1. **Split into separate PRs**, each cherry-picked onto a fresh branch from
    `upstream/github` (§1.3):
    - *parallel evaluation*: `dfc063b` alone;
-   - *inner circle + reset + daily load*: `9b6298b`, `9a5e305`, `99ec68c`,
-     `c6db376`, `87c10ed`, `1993944`, `9a397c1`;
-   - *fix, leaving a session mid-exercise* (`7ee5f62`, bug in #529 code,
+   - *inner circle + reset + daily load*: `51e3cb3`, `9fa357e`, `d05c2e2`,
+     `2181821`, `ff19585`, `925eee8`, `438a3f3`;
+   - *fix, leaving a session mid-exercise* (`41c16bc`, bug in #529 code,
      found Nov 23): its own small PR, or the first commit of the feature PR
      with a clear "fix" in the description;
-   - *fix, Swahili Difficulty labels* (`3202364`: Easiest = Easier and
+   - *fix, Swahili Difficulty labels* (`d3baea4`: Easiest = Easier and
      Harder = Hardest, `tests/tcl/lichess_puzzles.tcl` was failing): its
      own PR. Translations are the maintainer's, so say why (a failing test,
      no lila Swahili to copy).
 2. **Squash the follow-ups** into the commits they change, and reword:
-   `87c10ed` (opening mid-circle) → `9a5e305`; `1993944` (shorter texts,
-   first-cycle load only) → `9b6298b` + `9a5e305` + `99ec68c`; `9a397c1`
-   → `c6db376`.
-3. **Commit identity/signature**: decide before pushing (see §1.2 and the
-   Nov 24 discussion: cloud commits are SSH-signed with Claude's key, so
-   with my email as committer GitHub shows them "Unverified").
+   `ff19585` (opening mid-circle) → `9fa357e`; `925eee8` (shorter texts,
+   first-cycle load only) → `51e3cb3` + `9fa357e` + `d05c2e2`; `438a3f3`
+   → `2181821`. Keep the cloud identity (§1.2) when rewriting.
+3. Inner circle semantics to keep (my decisions, Nov 23–24): the circle is a
+   prefix of the cycle's order; opening during the circle finishes the
+   circle first, then the opened ones in the same cycle, and from the next
+   cycle the opened ones come first; reset archives the log as
+   `ring-<date>.tsv`, Restore offers only the newest ring; the daily load
+   shows the first cycle only.
 4. The usual §4 checklist, Changelog check, `git diff upstream/github
    --stat`.
 
