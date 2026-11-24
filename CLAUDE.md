@@ -484,7 +484,7 @@ Branches on my fork (as of 2026-11-24):
 
 | Branch | State | Notes |
 | --- | --- | --- |
-| `woodpeckerOptimization` | in progress, **two features + two fixes mixed: split before any PR** (see "Before the Woodpecker PRs" below) | `dfc063bd` grades a set on several engines at once (ids 21–28, 1 thread, Hash 64; 160 puzzles: 69 s → 31 s on 4 engines). Marks differ from a serial run on 4–11 % of puzzles (per-engine hash); `tests/woodpecker_eval_parallel.tcl` fails above 20 %. Touches `review_driver.tcl` (shared with Game Review → keep its tests green). Then (Nov 23–24, cloud): inner circle, reset/restore statistics, daily load in the new-set dialog (`51e3cb3`..`438a3f3`, pushed Nov 24), design in `docs/woodpecker-method.md` Decisions 8–9. |
+| `woodpeckerOptimization` | in progress, **two features + two fixes mixed: split before any PR** (see "Before the Woodpecker PRs" below) | `dfc063bd` grades a set on several engines at once (ids 21–28, 1 thread, Hash 64; 160 puzzles: 69 s → 31 s on 4 engines). Marks differ from a serial run on 4–11 % of puzzles (per-engine hash); `tests/woodpecker_eval_parallel.tcl` fails above 20 %. Touches `review_driver.tcl` (shared with Game Review → keep its tests green). Then (Nov 23–24, cloud): inner circle, reset/restore statistics, daily load in the new-set dialog (`51e3cb3`..`438a3f3`, pushed Nov 24; then `7886457`, `3152582`, `e99c32e`), design in `docs/woodpecker-method.md` Decisions 8–9. |
 | `feature/engine-speed-bench` | in progress | `f6433796` Engine Speed Lab plugin (`plugins/50_enginebench.tcl`, `docs/engine-speed-lab.md`, `tests/tcl/enginebench.tcl`): benchmark, Threads/Hash tuning by paired measurement (accept only > 1 % and > 2 SE). Authored as "Claude" — fix the author before a PR (§1.2). |
 | `woodpecker-pr` | merged | PR #529, upstream `4638d7e`. |
 | `replay-training` (private repo) | in progress | Repertoire Recall, §3.7. Last commit `66112d76` (Nov 18). 37 of the last 40 commits authored as "Claude" — fix before a PR (§1.2). |
@@ -497,7 +497,11 @@ Claude: when a PR from this branch comes up, walk through this list first.
    `upstream/github` (§1.3):
    - *parallel evaluation*: `dfc063b` alone;
    - *inner circle + reset + daily load*: `51e3cb3`, `9fa357e`, `d05c2e2`,
-     `2181821`, `ff19585`, `925eee8`, `438a3f3`;
+     `2181821`, `ff19585`, `925eee8`, `438a3f3`, `3152582`, `e99c32e`;
+   - *fix, the next move while the reply animates* (`7886457`: the reply
+     waited 200 ms with the opponent to move, so a piece grabbed then did not
+     lift and the move was lost; bug in #529 code, found by me Nov 24): its
+     own small PR, like `41c16bc`;
    - *fix, leaving a session mid-exercise* (`41c16bc`, bug in #529 code,
      found Nov 23): its own small PR, or the first commit of the feature PR
      with a clear "fix" in the description;
@@ -506,13 +510,14 @@ Claude: when a PR from this branch comes up, walk through this list first.
      own PR. Translations are the maintainer's, so say why (a failing test,
      no lila Swahili to copy).
 2. **Squash the follow-ups** into the commits they change, and reword:
-   `ff19585` (opening mid-circle) → `9fa357e`; `925eee8` (shorter texts,
-   first-cycle load only) → `51e3cb3` + `9fa357e` + `d05c2e2`; `438a3f3`
-   → `2181821`. Keep the cloud identity (§1.2) when rewriting.
+   `ff19585` (opening mid-circle) and `3152582` (order) → `9fa357e`;
+   `925eee8` (shorter texts, first-cycle load only) and `e99c32e` (grey
+   help lines) → `51e3cb3` + `9fa357e` + `d05c2e2`; `438a3f3` → `2181821`. Keep the cloud identity (§1.2) when rewriting.
 3. Inner circle semantics to keep (my decisions, Nov 23–24): the circle is a
-   prefix of the cycle's order; opening during the circle finishes the
-   circle first, then the opened ones in the same cycle, and from the next
-   cycle the opened ones come first; reset archives the log as
+   prefix of the cycle's order; opened exercises always come **after** the
+   circle, in the running cycle and in every later one (Nov 24: opened-first
+   was confusing); each dialog choice has a short label plus a grey help line
+   (Nov 24: too terse was as bad as too verbose); reset archives the log as
    `ring-<date>.tsv`, Restore offers only the newest ring; the daily load
    shows the first cycle only.
 4. The usual §4 checklist, Changelog check, `git diff upstream/github
