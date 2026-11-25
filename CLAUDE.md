@@ -527,7 +527,18 @@ Claude: when a PR from this branch comes up, walk through this list first.
    (Nov 24: too terse was as bad as too verbose); reset archives the log as
    `ring-<date>.tsv`, Restore offers only the newest ring; the daily load
    shows the first cycle only.
-4. The usual §4 checklist, Changelog check, `git diff upstream/github
+4. **Backward compatibility, checked Nov 25** (say it in the PR): the
+   release's Woodpecker (`4638d7e`) created sets and played a real session
+   in a clean HOME, then the branch's code opened the same folder: dayPlan,
+   progress, session/cycle statistics, mark status and the sets list were
+   identical (173 values), sessions continued, no Tk errors; the release's
+   own `tests/tcl/woodpecker_core.tcl` (164 checks) passes against the new
+   core. Nothing to migrate: no option or file format changed; the new
+   data (log `C` rows, set.tsv `retired`, `ring-*.tsv`) is optional. The
+   other way (a synced folder opened by the old release) loses nothing but
+   ignores the circle and shows moved/given-back exercises again. Re-run
+   this check (old worktree + same binary) if the branch changes again.
+5. The usual §4 checklist, Changelog check, `git diff upstream/github
    --stat`.
 
 Next topics:
