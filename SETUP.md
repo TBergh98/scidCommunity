@@ -48,7 +48,7 @@ On Windows write hook files with `[IO.File]::WriteAllText` (LF, no BOM).
 
 - The environment's setup script (claude.ai environment settings, edited
   by me) sets my identity
-  (`user.name`/`user.email`: me as author and committer)
+  (`author.*` = me, `committer.*` = Claude)
   and runs, from the checkout root:
   `git fetch -q origin claude-notes && git show FETCH_HEAD:cloud-setup.sh | sh`
 - `cloud-setup.sh` makes `../scidCommunity-notes` a worktree of
