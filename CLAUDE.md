@@ -73,12 +73,9 @@ If `../scidCommunity-notes` is missing there, read a file with
 - **Authorship**: I (`TBergh98`, my usual email) am the author of every
   commit; Claude is credited with `Co-Authored-By: Claude <model>
   <noreply@anthropic.com>`, also upstream.
-  - Local: my identity as author and committer. If `git config user.name`
-    says `Claude`, stop and tell me before committing.
-  - Cloud: **author me, committer Claude** (`author.name/email` = mine,
-    `committer.name Claude`, `committer.email noreply@anthropic.com`): cloud
-    git signs with Anthropic's key, which is "Verified" only for that
-    committer email.
+  - Local and cloud: I am **both author and committer**. If `git var
+    GIT_AUTHOR_IDENT` or `GIT_COMMITTER_IDENT` says `Claude`, stop and tell
+    me before committing.
 - Never commit secrets, Lichess tokens, local paths, or files from
   `~/Downloads/*` reference trees.
 
