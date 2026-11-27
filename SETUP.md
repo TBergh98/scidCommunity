@@ -46,12 +46,16 @@ On Windows write hook files with `[IO.File]::WriteAllText` (LF, no BOM).
 
 ## Cloud sessions
 
-- The environment's setup script copies the latest `claude-notes:CLAUDE.md`
-  into the checkout (excluded) and sets my identity (author me, committer
-  Claude, see `CLAUDE.md`). It copies **only** `CLAUDE.md`: read the other
-  files with `git fetch origin claude-notes && git show FETCH_HEAD:<file>`.
-- To edit: `git fetch origin claude-notes`, worktree on `FETCH_HEAD`,
-  commit, `git push origin HEAD:claude-notes`.
+- The environment's setup script (claude.ai environment settings, edited
+  by me) sets my identity (author me, committer Claude, see `CLAUDE.md`)
+  and runs, from the checkout root:
+  `git fetch -q origin claude-notes && git show FETCH_HEAD:cloud-setup.sh | sh`
+- `cloud-setup.sh` makes `../scidCommunity-notes` a worktree of
+  `claude-notes` (all notes files, tracking origin, pushable) and links
+  `CLAUDE.md` to it, excluded: the same layout as my PCs. Change the cloud
+  setup by editing that script here, not the environment.
+- Tested on a single-branch clone of a scratch remote, run twice; not yet
+  verified inside a real cloud container.
 
 ## If upstream adds its own tracked `CLAUDE.md`
 

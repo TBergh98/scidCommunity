@@ -22,15 +22,16 @@ loads them every session, which is what this split avoids.
 | `../scidCommunity-notes/PR-CHECKLIST.md` | before opening a PR or pushing to a PR branch; before editing the areas it lists |
 | `../scidCommunity-notes/SETUP.md` | setting up a new machine or a cloud session; if the notes look misconfigured |
 
-In a cloud session only `CLAUDE.md` is copied into the checkout: read the
-others with `git fetch origin claude-notes && git show FETCH_HEAD:<file>`.
+Cloud sessions get the same layout from `cloud-setup.sh` (see `SETUP.md`).
+If `../scidCommunity-notes` is missing there, read a file with
+`git fetch origin claude-notes && git show FETCH_HEAD:<file>` and tell me.
 
 ## Keeping the notes up to date (Claude, mandatory)
 
 - Any change to a notes file: commit and push it to `claude-notes` yourself,
   in the same turn, without asking. Commit from the notes worktree only:
   `git -C ../scidCommunity-notes add -A && git -C ../scidCommunity-notes commit -m "notes: <what>" && git -C ../scidCommunity-notes push`.
-  Cloud: commit on a worktree of `FETCH_HEAD`, `git push origin HEAD:claude-notes`.
+  Same command in the cloud (the worktree tracks `origin/claude-notes`).
 - End of a session where a branch or PR changed state: update `STATE.md`
   (what is done, what is left, what is blocked), dated.
 - A lesson goes into `PR-CHECKLIST.md` only when a mistake recurs or the
