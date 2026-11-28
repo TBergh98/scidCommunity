@@ -52,7 +52,18 @@ entries that are done; git history keeps them.
   header medals, annotation types other than text/symbols/squares/arrows
   (so no quotations, medals or evaluations from `.cbh`); the Chess960
   king/rook square bytes (outermost rook used).
-- **Next**: compare comment placement in a few `.cbh` games with ChessBase
+- Real 2CBH test (2026-11-28): 45 databases from my OneDrive, converted
+  from copies in `D:\...\Software\cb-import-test` (never convert inside
+  OneDrive): 45/45 made, 7880 records, 7837 games, 9 too long (moves only).
+  A large 2CBH database converted in ~4 min. **Found, not fixed yet**
+  (verified with a temporary patch: 7855 games, 0 incomplete):
+  (1) word `0xfffe` in the move tree is not a move: skip it, also in the
+  look-ahead for the alternative marker (18 games were skipped);
+  (2) annotation type `0x0a` = counted string (engine win/draw/loss as
+  JSON) + 4 bytes (38 games lost later annotations). Unchecked: whether
+  `0xfffe` takes an annotation position. The other 7 skipped games are
+  pawn-only diagrams (tag `0x0a`, no kings): correct, message could say so.
+- **Next**: fix (1) and (2); compare comment placement in a few `.cbh` games with ChessBase
   (positions are in stored order); a large `.cbh` (old Mega) for time;
   ASan+UBSan on `Test_CBH*` in the cloud; manual folder conversion on real
   files; push; run `scid.cmd ..\scidCommunity-notes\tools\cb2_counts.tcl
