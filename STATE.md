@@ -55,15 +55,14 @@ entries that are done; git history keeps them.
 - Real 2CBH test (2026-11-28): 45 databases from my OneDrive, converted
   from copies in `D:\...\Software\cb-import-test` (never convert inside
   OneDrive): 45/45 made, 7880 records, 7837 games, 9 too long (moves only).
-  A large 2CBH database converted in ~4 min. **Found, not fixed yet**
-  (verified with a temporary patch: 7855 games, 0 incomplete):
-  (1) word `0xfffe` in the move tree is not a move: skip it, also in the
-  look-ahead for the alternative marker (18 games were skipped);
-  (2) annotation type `0x0a` = counted string (engine win/draw/loss as
-  JSON) + 4 bytes (38 games lost later annotations). Unchecked: whether
-  `0xfffe` takes an annotation position. The other 7 skipped games are
-  pawn-only diagrams (tag `0x0a`, no kings): correct, message could say so.
-- **Next**: fix (1) and (2); compare comment placement in a few `.cbh` games with ChessBase
+  A large 2CBH database converted in ~4 min. Fixed (`a5364340`,
+  `7f79fa63`): word `0xfffe` skipped (18 games; takes no annotation
+  position, measured), annotation `0x0a` = counted JSON + 4 bytes (38
+  games). Now 7855 games, 0 incomplete. Still skipped: 7 pawn-only
+  diagrams (no kings, no moves, one game comment each) in a repertoire
+  file: **ask me** how to import them (Scid needs kings). 9 games of
+  "Materiale Xia" over 128 KB keep moves only.
+- **Next**: compare comment placement in a few `.cbh` games with ChessBase
   (positions are in stored order); a large `.cbh` (old Mega) for time;
   ASan+UBSan on `Test_CBH*` in the cloud; manual folder conversion on real
   files; push; run `scid.cmd ..\scidCommunity-notes\tools\cb2_counts.tcl
