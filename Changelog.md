@@ -12,6 +12,9 @@ A scidCommunity version has three numbers and a build number, for example **5.1.
 The latest downloads are on the [Releases page](https://github.com/whelanh/scidCommunity/releases).
 
 ---
+## Unreleased
+- **Import Games from PGN Files...** also reads ChessBase databases (`.2cbh`, the newer ChessBase format, also used by Mega Database 2026 and 2027): games come in with their variations, comments, symbols, coloured squares and arrows and game quotations. The database is read a game at a time, so even a Mega Database of millions of games can be imported. A game with more annotations than a Scid game can hold is imported with its moves only, and the import says how many. Duplicate games are not checked for, so import into a new database. The file layout follows the [oschess-cb-bridge](docs/third-party-notices.md) notes.
+
 ## 5.1.4.78 - 27 November 2026
 - Searches through the headless API can find games by position, given as a FEN, with exact, pawns, files or material matching and color reversal ([documentation](docs/HEADLESS_API_SPEC.md)).
 - Board searches with **Look in vars** now find a position reached by the last move of a variation.
