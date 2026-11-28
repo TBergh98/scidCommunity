@@ -55,7 +55,7 @@ entries that are done; git history keeps them.
 - **Next**: compare comment placement in a few `.cbh` games with ChessBase
   (positions are in stored order); a large `.cbh` (old Mega) for time;
   ASan+UBSan on `Test_CBH*` in the cloud; manual folder conversion on real
-  files; push; run `scid.cmd ..\scidCommunity-notes	ools\cb2_counts.tcl
+  files; push; run `scid.cmd ..\scidCommunity-notes\tools\cb2_counts.tcl
   <db>.2cbh` on Mega 2026/2027 and the updates (counts + time); cbtool
   oracle; PR + Discussion drafts in `pr-drafts/`. Default comment language
   is English; `CodecCB2::setLanguages()` exists but nothing in the UI sets it.
