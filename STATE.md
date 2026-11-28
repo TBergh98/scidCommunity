@@ -11,7 +11,7 @@ entries that are done; git history keeps them.
 | `woodpeckerOptimization-pr` | **merged** as PR #560 (2026-11-27, merge `8af1eacc`), incl. the maintainer's fixes `c073d86c`, `c233809c` | local branch is 2 behind origin: nothing to do, can be deleted |
 | `woodpeckerOptimization` | superseded by #560 except `d3baea4` | see "Open items" |
 | `feature/engine-speed-bench` | in progress; ahead 1 / behind 1 of origin | Engine Speed Lab plugin (`plugins/50_enginebench.tcl`, `docs/engine-speed-lab.md`, `tests/tcl/enginebench.tcl`): benchmark, Threads/Hash tuning by paired measurement (accept only > 1 % and > 2 SE). Reconcile local/origin; commits authored as "Claude": fix the author before a PR |
-| `cb2Import` | in progress, on `upstream/github` `2aaec188`; 10 commits, phases 1-8 done (7-8 locally 2026-11-28, **not pushed yet**) | see "2CBH import" |
+| `cb2Import` | in progress, on `upstream/github` `2aaec188`; 14 commits, 2CBH phases 1-8 + import window and folder conversion done (2026-11-28, **push: check `git status -sb`**) | see "2CBH import" |
 | `replay-training` (private repo) | in progress, last commit `66112d76` (Nov 18) | see "Repertoire Recall" |
 
 ## Open items
@@ -37,7 +37,12 @@ entries that are done; git history keeps them.
   `Changelog.md` entry under `## Unreleased`.
 - Local build: the toolchain globs `src/*.cpp`, nothing to add; built and
   passing on the home PC 2026-11-28.
-- **Next**: push; run `scid.cmd ..\scidCommunity-notes\tools\cb2_counts.tcl
+- Import UX (`4936afbe`..`2b9847fd`): default filter PGN+ChessBase, menu
+  label, `.cbh` reported as unreadable; Database > Convert a Folder to Scid
+  Databases (`importFolderPlan`/`Run` in `tcl/tools/import.tcl`; partial
+  bases deleted so a rerun resumes); it "Browse" = Sfoglia; changelog.
+  `cb2_import.tcl` 22 checks. Dialog geometry checked in the GUI (it).
+- **Next**: manual folder conversion on real files; push; run `scid.cmd ..\scidCommunity-notes\tools\cb2_counts.tcl
   <db>.2cbh` on Mega 2026/2027 and the updates (counts + time); cbtool
   oracle; PR + Discussion drafts in `pr-drafts/`. Default comment language
   is English; `CodecCB2::setLanguages()` exists but nothing in the UI sets it.
