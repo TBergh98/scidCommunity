@@ -5,6 +5,12 @@
 # Result: ../scidCommunity-notes is a worktree of claude-notes (all notes
 # files, pushable), and CLAUDE.md in the checkout is a symlink to it.
 set -e
+# The cloud harness writes committer.name/email = Claude into .git/config;
+# make me the committer too, copying the author identity it already set.
+if [ -n "$(git config author.name)" ]; then
+  git config committer.name "$(git config author.name)"
+  git config committer.email "$(git config author.email)"
+fi
 git fetch -q origin claude-notes:refs/remotes/origin/claude-notes
 notes=../scidCommunity-notes
 # single-branch clones refuse --set-upstream-to here, so write the tracking config directly

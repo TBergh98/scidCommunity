@@ -57,6 +57,11 @@ On Windows write hook files with `[IO.File]::WriteAllText` (LF, no BOM).
   setup by editing that script here, not the environment.
 - Tested on a single-branch clone of a scratch remote, run twice; not yet
   verified inside a real cloud container.
+- Seen 2026-11-28: the harness writes `author.*` = me but `committer.*` =
+  Claude into `.git/config` (and `~/.gitconfig` user = Claude).
+  `cloud-setup.sh` now copies author → committer; if the harness writes its
+  config *after* the setup script, check `git var GIT_COMMITTER_IDENT` and
+  fix it by hand in the session.
 
 ## If upstream adds its own tracked `CLAUDE.md`
 
