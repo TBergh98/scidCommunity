@@ -37,7 +37,7 @@ entries that are done; git history keeps them.
   `Changelog.md` entry under `## Unreleased`.
 - Local build: the toolchain globs `src/*.cpp`, nothing to add; built and
   passing on the home PC 2026-11-28.
-- **Next**: push; run `scid.cmd ..\scidCommunity-notes	ools\cb2_counts.tcl
+- **Next**: push; run `scid.cmd ..\scidCommunity-notes\tools\cb2_counts.tcl
   <db>.2cbh` on Mega 2026/2027 and the updates (counts + time); cbtool
   oracle; PR + Discussion drafts in `pr-drafts/`. Default comment language
   is English; `CodecCB2::setLanguages()` exists but nothing in the UI sets it.
