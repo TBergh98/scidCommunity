@@ -11,7 +11,7 @@ entries that are done; git history keeps them.
 | `woodpeckerOptimization-pr` | **merged** as PR #560 (2026-11-27, merge `8af1eacc`), incl. the maintainer's fixes `c073d86c`, `c233809c` | local branch is 2 behind origin: nothing to do, can be deleted |
 | `woodpeckerOptimization` | superseded by #560 except `d3baea4` | see "Open items" |
 | `feature/engine-speed-bench` | in progress; ahead 1 / behind 1 of origin | Engine Speed Lab plugin (`plugins/50_enginebench.tcl`, `docs/engine-speed-lab.md`, `tests/tcl/enginebench.tcl`): benchmark, Threads/Hash tuning by paired measurement (accept only > 1 % and > 2 SE). Reconcile local/origin; commits authored as "Claude": fix the author before a PR |
-| `cb2Import` | in progress, on `upstream/github` `2aaec188`; 14 commits, 2CBH phases 1-8 + import window and folder conversion done (2026-11-28, **push: check `git status -sb`**) | see "2CBH import" |
+| `cb2Import` | in progress, on `upstream/github` `2aaec188`; 18 commits: 2CBH, import window, folder conversion and classic CBH done (2026-11-28, **not pushed: check `git status -sb`**) | see "ChessBase import" |
 | `replay-training` (private repo) | in progress, last commit `66112d76` (Nov 18) | see "Repertoire Recall" |
 
 ## Open items
@@ -22,7 +22,7 @@ entries that are done; git history keeps them.
   the maintainer's, so say why (failing test, no lila Swahili to copy).
 - Local `github` branch is behind upstream (still at `5c912dce`).
 
-## 2CBH import (`cb2Import`)
+## ChessBase import (`cb2Import`)
 
 - Done: notice (`docs/third-party-notices.md`, from oschess-cb-bridge
   v1.0.3 only: tag object b5c18be3 = commit bffebfc4), reader
@@ -42,7 +42,20 @@ entries that are done; git history keeps them.
   Databases (`importFolderPlan`/`Run` in `tcl/tools/import.tcl`; partial
   bases deleted so a rerun resumes); it "Browse" = Sfoglia; changelog.
   `cb2_import.tcl` 22 checks. Dialog geometry checked in the GUI (it).
-- **Next**: manual folder conversion on real files; push; run `scid.cmd ..\scidCommunity-notes\tools\cb2_counts.tcl
+- Classic `.cbh` (`8433f526`..`b558f846`): `src/cbh_*` behind `CodecCB2`,
+  ported from the same v1.0.3 (`cbh/`). `test_codec_cbh.cpp` 14 tests;
+  CB2+CBH 44/44 with MinGW (a Windows-only test bug fixed on the way);
+  `cb2_import.tcl` 22 checks, `startup_order` 32. Real data (129 small
+  ChessBase databases on the home PC): 2297 records, 1722 games, 0 damaged,
+  0 incomplete; all mode 0, 208 set-up starts. Modes 4/5/10 and `.cbj`
+  over 4 GiB: fixtures only. Not read: guiding texts, sources, teams,
+  header medals, annotation types other than text/symbols/squares/arrows
+  (so no quotations, medals or evaluations from `.cbh`); the Chess960
+  king/rook square bytes (outermost rook used).
+- **Next**: compare comment placement in a few `.cbh` games with ChessBase
+  (positions are in stored order); a large `.cbh` (old Mega) for time;
+  ASan+UBSan on `Test_CBH*` in the cloud; manual folder conversion on real
+  files; push; run `scid.cmd ..\scidCommunity-notes	ools\cb2_counts.tcl
   <db>.2cbh` on Mega 2026/2027 and the updates (counts + time); cbtool
   oracle; PR + Discussion drafts in `pr-drafts/`. Default comment language
   is English; `CodecCB2::setLanguages()` exists but nothing in the UI sets it.

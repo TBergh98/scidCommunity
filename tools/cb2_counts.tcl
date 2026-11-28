@@ -1,4 +1,5 @@
-# cb2_counts.tcl -- local check of the 2CBH importer (branch cb2Import).
+# cb2_counts.tcl -- local check of the 2CBH and CBH importers (branch
+# cb2Import); takes .2cbh and .cbh files.
 # Prints counts only: no names, no moves, no comments.
 #
 #   scid-toolchain\scid.cmd <notes>\tools\cb2_counts.tcl D:\...\Mega2027.2cbh [more.2cbh ...]
