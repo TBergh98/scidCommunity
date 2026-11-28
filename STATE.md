@@ -11,7 +11,7 @@ entries that are done; git history keeps them.
 | `woodpeckerOptimization-pr` | **merged** as PR #560 (2026-11-27, merge `8af1eacc`), incl. the maintainer's fixes `c073d86c`, `c233809c` | local branch is 2 behind origin: nothing to do, can be deleted |
 | `woodpeckerOptimization` | superseded by #560 except `d3baea4` | see "Open items" |
 | `feature/engine-speed-bench` | in progress; ahead 1 / behind 1 of origin | Engine Speed Lab plugin (`plugins/50_enginebench.tcl`, `docs/engine-speed-lab.md`, `tests/tcl/enginebench.tcl`): benchmark, Threads/Hash tuning by paired measurement (accept only > 1 % and > 2 SE). Reconcile local/origin; commits authored as "Claude": fix the author before a PR |
-| `cb2Import` | in progress (cloud session 2026-11-28), on `upstream/github` `2aaec188`, pushed to origin; 8 commits, phases 1-6 of the plan done | see "2CBH import" |
+| `cb2Import` | in progress, on `upstream/github` `2aaec188`; 10 commits, phases 1-8 done (7-8 locally 2026-11-28, **not pushed yet**) | see "2CBH import" |
 | `replay-training` (private repo) | in progress, last commit `66112d76` (Nov 18) | see "Repertoire Recall" |
 
 ## Open items
@@ -31,13 +31,16 @@ entries that are done; git history keeps them.
   (also clean under ASan+UBSan), `tests/tcl/cb2_import.tcl` 13 checks, in CI.
 - Not read (no layout in v1.0.3): teams, sources. Games > 128 KB: moves only.
 - Synthetic throughput in the cloud: 13.4 us/game (80 plies, cached).
-- **Next, home PC**: add the 4 new `.cpp` to the toolchain's own
-  CMakeLists, delete `scid-toolchain\build\`, build; run
-  `scid.cmd ..\scidCommunity-notes\tools\cb2_counts.tcl <db>.2cbh` on
-  Mega 2026/2027 and the updates (counts + time); then the cbtool oracle.
-- Left: phase 7 (file dialog + en/it strings), 8 (changelog), PR +
-  Discussion drafts in `pr-drafts/`. Default comment language is English;
-  `CodecCB2::setLanguages()` exists but nothing in the UI sets it yet.
+- Phase 7 (`a889630f`): the import window (`importPgnFile`) offers
+  `.2cbh` and sends it to `sc_base import` (no dup check: `import_nodup`
+  is PGN-only); 3 en/it keys; harness now 15 checks. Phase 8 (`6c9c3385`):
+  `Changelog.md` entry under `## Unreleased`.
+- Local build: the toolchain globs `src/*.cpp`, nothing to add; built and
+  passing on the home PC 2026-11-28.
+- **Next**: push; run `scid.cmd ..\scidCommunity-notes	ools\cb2_counts.tcl
+  <db>.2cbh` on Mega 2026/2027 and the updates (counts + time); cbtool
+  oracle; PR + Discussion drafts in `pr-drafts/`. Default comment language
+  is English; `CodecCB2::setLanguages()` exists but nothing in the UI sets it.
 
 ## Repertoire Recall (replay-training)
 
